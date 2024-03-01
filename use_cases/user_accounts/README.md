@@ -67,6 +67,8 @@ USE store;
 Create tables
 
 ``` sql
+SET enable_auto_rehoming = on;
+
 CREATE TABLE user_account (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "email" STRING NOT NULL,
@@ -113,39 +115,7 @@ Test local service (Cloud)
 
 ``` sh
 DATABASE_URL=$(cd user_accounts/infra && terraform output -raw app_url) \
-  go run user_accounts/main.go
-```
-
-### Test local server
-
-Registration
-
-``` sh
-curl -s \
-  -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"email": "example@example.com", "password": "S3creT"}' \
-    http://localhost:3000/auth/register | jq
-```
-
-Login
-
-``` sh
-curl -s \
-  -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"email": "example@example.com", "password": "S3creT"}' \
-    http://localhost:3000/auth/login | jq
-```
-
-Profile update
-
-``` sh
-curl -s \
-  -X PATCH \
-  -H 'Content-Type: application/json' \
-  -d '{"avatar_base64": "fJmKaAaIMnhBd4twz2NmAmlUYxut6vIOtQ=="}' \
-    http://localhost:3000/accounts/4e7dff6e-8cf6-48c1-98e5-1c39ce417275/profile | jq
+  go run user_accounts/app/main.go
 ```
 
 ### Test deployed service
@@ -218,6 +188,16 @@ FROM user_account;
 
 SELECT *
 FROM user_profile;
+```
+
+Simulate a user moving between countries
+
+``` sh
+curl -s \
+  -X PATCH \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "uk2@example.com"}' \
+    https://crdb-user-accounts.fly.dev/accounts/7912186d-b6b5-4ea7-a733-79e4bb0469c9/account | jq
 ```
 
 ### Teardown

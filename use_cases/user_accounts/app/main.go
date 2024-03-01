@@ -31,6 +31,7 @@ func main() {
 	router := fiber.New()
 	router.Post("/auth/register", handleRegister(db))
 	router.Post("/auth/login", handleLogin(db))
+	router.Patch("/accounts/:id/account", handleAccountUpdate(db))
 	router.Patch("/accounts/:id/profile", handleProfileUpdate(db))
 
 	log.Fatal(router.Listen(":3000"))
@@ -111,6 +112,32 @@ func handleLogin(db *pgxpool.Pool) fiber.Handler {
 	}
 }
 
+type accountUpdateRequest struct {
+	Email string `json:"email"`
+}
+
+func handleAccountUpdate(db *pgxpool.Pool) fiber.Handler {
+	const stmt = `UPDATE user_account SET email = $1 WHERE id = $2`
+
+	return func(c *fiber.Ctx) error {
+		accountID := c.Params("id")
+
+		var request accountUpdateRequest
+		if err := c.BodyParser(&request); err != nil {
+			log.Printf("error parsing account update request: %v", err)
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "invalid request")
+		}
+
+		// Update account.
+		if _, err := db.Exec(c.Context(), stmt, request.Email, accountID); err != nil {
+			log.Printf("error updating account: %v", err)
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "update error")
+		}
+
+		return nil
+	}
+}
+
 type profileUpdateRequest struct {
 	AvatarBase64 string `json:"avatar_base64"`
 }
@@ -129,7 +156,7 @@ func handleProfileUpdate(db *pgxpool.Pool) fiber.Handler {
 
 		// Update profile.
 		if _, err := db.Exec(c.Context(), stmt, accountID, request.AvatarBase64); err != nil {
-			log.Printf("error updating avatar: %v", err)
+			log.Printf("error updating profile: %v", err)
 			return fiber.NewError(fiber.StatusUnprocessableEntity, "update error")
 		}
 
