@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/jackc/pgx/v5"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,7 +26,10 @@ func main() {
 		log.Fatalf("error connecting to database: %v", err)
 	}
 
-	if err = db.Ping(context.Background()); err != nil {
+	timeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if err = db.Ping(timeout); err != nil {
 		log.Fatalf("error testing database connection: %v", err)
 	}
 
@@ -34,15 +37,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("error loading region: %v", err)
 	}
-
 	log.Printf("running in region: %q", region)
 
 	go work(db, region)
+	server(db)
+}
 
+func server(db *pgxpool.Pool) {
 	router := fiber.New()
+	router.Use(cors.New())
+
 	router.Get("/", handleGetAircraftDiagnostics(db))
 
-	log.Fatal(router.Listen(":3000"))
+	addr, ok := os.LookupEnv("LISTEN_ADDR")
+	if !ok {
+		addr = ":3000"
+	}
+
+	log.Fatal(router.Listen(addr))
 }
 
 func handleGetAircraftDiagnostics(db *pgxpool.Pool) fiber.Handler {
@@ -57,7 +69,10 @@ func handleGetAircraftDiagnostics(db *pgxpool.Pool) fiber.Handler {
 								FROM aircraft_diagnostics`
 
 	return func(c *fiber.Ctx) error {
-		rows, err := db.Query(c.Context(), stmt)
+		timeout, cancel := context.WithTimeout(c.Context(), time.Second*5)
+		defer cancel()
+
+		rows, err := db.Query(timeout, stmt)
 		if err != nil {
 			log.Printf("error fetching locations: %v", err)
 			return fiber.NewError(fiber.StatusInternalServerError, "error fetching locations")
@@ -108,7 +123,10 @@ func fetchAircraft(db *pgxpool.Pool, region string) ([]aircraftDiagnostics, erro
 								FROM aircraft_diagnostics
 								WHERE crdb_region = $1`
 
-	rows, err := db.Query(context.Background(), stmt, region)
+	timeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	rows, err := db.Query(timeout, stmt, region)
 	if err != nil {
 		return nil, fmt.Errorf("querying aircraft: %w", err)
 	}
@@ -133,19 +151,12 @@ func updateAircraft(db *pgxpool.Pool, aircraft []aircraftDiagnostics) error {
 										 last_update = now()
 									 WHERE aircraft_id = $2`
 
-	batch := pgx.Batch{}
 	for _, a := range aircraft {
-		lat, lon := moveAircraft(a.Lat, a.Lon, 100, float64(a.Heading))
+		lat, lon := moveAircraft(a.Lat, a.Lon, 10, float64(a.Heading))
 
-		batch.Queue(
-			fmt.Sprintf(stmtFmt, lat, lon),
-			a.BatteryLevel-0.25,
-			a.AircraftID,
-		)
-	}
-
-	if _, err := db.SendBatch(context.Background(), &batch).Exec(); err != nil {
-		log.Fatalf("error moving aircraft: %v", err)
+		if _, err := db.Exec(context.Background(), fmt.Sprintf(stmtFmt, lon, lat), a.BatteryLevel-0.25, a.AircraftID); err != nil {
+			return fmt.Errorf("updating diagnostics: %w", err)
+		}
 	}
 
 	return nil
@@ -169,16 +180,26 @@ func loadRegion(db *pgxpool.Pool) (string, error) {
 }
 
 func moveAircraft(lat, lon, distance, bearing float64) (float64, float64) {
-	earthRadius := 6378.1
-	bearingR := bearing * math.Pi / 180
-	latR := lat * math.Pi / 180
-	lonR := lon * math.Pi / 180
+	dr := distance / 6371
 
-	latR = math.Asin(math.Sin(latR)*math.Cos(distance/earthRadius) +
-		math.Cos(latR)*math.Sin(distance/earthRadius)*math.Cos(bearingR))
+	bearing = (bearing * (math.Pi / 180.0))
 
-	lonR = lonR + math.Atan2(math.Sin(bearingR)*math.Sin(distance/earthRadius)*math.Cos(latR),
-		math.Cos(distance/earthRadius)-math.Sin(latR)*math.Sin(latR))
+	lat1 := (lat * (math.Pi / 180.0))
+	lng1 := (lon * (math.Pi / 180.0))
 
-	return latR * 180 / math.Pi, lonR * 180 / math.Pi
+	lat2_part1 := math.Sin(lat1) * math.Cos(dr)
+	lat2_part2 := math.Cos(lat1) * math.Sin(dr) * math.Cos(bearing)
+
+	lat2 := math.Asin(lat2_part1 + lat2_part2)
+
+	lng2_part1 := math.Sin(bearing) * math.Sin(dr) * math.Cos(lat1)
+	lng2_part2 := math.Cos(dr) - (math.Sin(lat1) * math.Sin(lat2))
+
+	lng2 := lng1 + math.Atan2(lng2_part1, lng2_part2)
+	lng2 = math.Mod((lng2+3*math.Pi), (2*math.Pi)) - math.Pi
+
+	lat2 = lat2 * (180.0 / math.Pi)
+	lng2 = lng2 * (180.0 / math.Pi)
+
+	return lat2, lng2
 }

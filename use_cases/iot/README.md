@@ -104,11 +104,36 @@ CREATE TABLE aircraft_diagnostics (
 ) LOCALITY REGIONAL BY ROW;
 ```
 
-Seed database
+### Seed database
+
+Seed local database
 
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
   go run iot/seed/main.go
+```
+
+Seed deployed database
+
+``` sh
+DATABASE_URL=$(cd _database && terraform output -raw iot_app_url) \
+  go run iot/seed/main.go
+```
+
+### Deploy service
+
+``` sh
+fly app create crdb-iot --org crl-devrel
+
+fly secrets set \
+  --app crdb-iot \
+  DATABASE_URL=$(cd _database && terraform output -raw iot_app_url)
+
+cp go.* iot/app
+(cd iot/app && fly deploy --ha=false)
+(cd iot/app && fly scale count 3 --region fra,iad,sin --max-per-region 1)
+
+rm iot/app/go.*
 ```
 
 ### Test local services
@@ -118,6 +143,7 @@ US aircraft
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-us-east-1" \
+LISTEN_ADDR=":3000" \
   go run iot/app/main.go
 ```
 
@@ -126,6 +152,7 @@ EU aircraft
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-eu-central-1" \
+LISTEN_ADDR=":3001" \
   go run iot/app/main.go
 ```
 
@@ -134,6 +161,7 @@ AP aircraft
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-ap-southeast-1" \
+LISTEN_ADDR=":3002" \
   go run iot/app/main.go
 ```
 
@@ -141,4 +169,57 @@ Test fetch endpoint
 
 ``` sh
 curl http://localhost:3000 | jq
+```
+
+### Show site
+
+``` sh
+open iot/app/index.html
+```
+
+### Summary
+
+* My example is very contrived and you can make better use of geometries to determine region.
+
+### Debug statements
+
+Show distribution of aircraft in regions
+
+``` sql
+SELECT crdb_region, COUNT(*)
+FROM aircraft_diagnostics
+GROUP BY crdb_region
+ORDER BY 1;
+```
+
+Show lat/longs for a given aircraft
+
+``` sql
+SELECT
+  st_x(location) lon,
+  st_y(location) lat,
+  crdb_region
+FROM aircraft_diagnostics
+WHERE aircraft_id = (SELECT id FROM aircraft ORDER BY id LIMIT 1);
+```
+
+### Teardown
+
+App
+
+``` sh
+fly app delete crdb-iot -y
+```
+
+Database (required before user can be deleted)
+
+``` sql
+SET sql_safe_updates = false;
+DROP DATABASE iot;
+```
+
+Cluster
+
+``` sh
+(cd _database && terraform destroy --auto-approve)
 ```

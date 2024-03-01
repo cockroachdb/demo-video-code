@@ -1,41 +1,69 @@
-<!DOCTYPE html>
 <html>
-<head>
-    <title>Live Map Update Example</title>
+  <head>
+    <title>CockroachDB IoT example</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map { width: 600px; height: 400px; }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+		<script src="leaflet.rotatedMarker.js"></script>
+
     <script>
-        // Initialize the map and set its view to a dummy location
-        var map = L.map('map').setView([0, 0], 13);
+      const us_icon = L.icon({ iconUrl: "icon_us.png" });
+			const eu_icon = L.icon({ iconUrl: "icon_eu.png" });
+			const ap_icon = L.icon({ iconUrl: "icon_ap.png" });
 
-        // Set up the tiles for the map
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+      // Initialize the map and set its view to a dummy location
+      var map = L.map("map").setView([0, 0], 3);
 
-        // Function to update the map location
-        function updateMapLocation() {
-            fetch('https://api.example.com/location')
-                .then(response => response.json())
-                .then(data => {
-                    // Assuming the API returns a JSON object with latitude and longitude
-                    const { latitude, longitude } = data;
+      // Set up the tiles for the map
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 10,
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
 
-                    // Update the map view to the new location
-                    map.setView([latitude, longitude], 13);
-                })
-                .catch(error => console.log('Error:', error));
-        }
+      var markerGroup = L.layerGroup().addTo(map);
 
-        // Update the map location every second
-        setInterval(updateMapLocation, 1000);
+			function getIcon(region) {
+				switch (region) {
+					case 'aws-us-east-1':
+						return us_icon
+					case 'aws-ap-southeast-1':
+						return ap_icon
+					case 'aws-eu-central-1':
+						return eu_icon
+					default:
+						console.log(`${region} is not a valid region`)
+				}
+			}
+
+      function updateMapLocation() {
+        fetch("http://localhost:3000")
+          .then((response) => response.json())
+          .then((data) => {
+            markerGroup.clearLayers();
+
+            data.forEach((item) => {
+              const { lat, lon, region, heading } = item;
+              var marker = L.marker([lat, lon], {
+                icon: getIcon(region),
+								rotationAngle: (heading + 270) % 360
+              }).addTo(markerGroup);
+            });
+          })
+          .catch((error) => console.log("Error:", error));
+      }
+
+      // Update the map location every second
+      setInterval(updateMapLocation, 1000);
     </script>
-</body>
+  </body>
 </html>
