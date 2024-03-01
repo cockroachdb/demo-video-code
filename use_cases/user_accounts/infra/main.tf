@@ -11,11 +11,8 @@ resource "cockroach_cluster" "demo" {
   name           = "crdb-use-cases"
   regions = [
     { name : "eu-central-1", primary = true },
-    { name : "eu-west-1" },
-    { name : "ap-south-1" },
     { name : "ap-southeast-1" },
     { name : "us-east-1" },
-    { name : "us-west-2" },
   ]
   serverless = {
     spend_limit = 0

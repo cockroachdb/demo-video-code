@@ -31,7 +31,7 @@ func main() {
 	router := fiber.New()
 	router.Post("/auth/register", handleRegister(db))
 	router.Post("/auth/login", handleLogin(db))
-	router.Patch("/accounts/:id/avatar", handleAvatarUpdate(db))
+	router.Patch("/accounts/:id/profile", handleProfileUpdate(db))
 
 	log.Fatal(router.Listen(":3000"))
 }
@@ -44,7 +44,7 @@ type registerRequest struct {
 func handleRegister(db *pgxpool.Pool) fiber.Handler {
 	argon := newArgon2idHash()
 
-	const stmt = `INSERT INTO account (email, password_hash, password_salt) VALUES ($1, $2, $3)
+	const stmt = `INSERT INTO user_account (email, password_hash, password_salt) VALUES ($1, $2, $3)
 								RETURNING id`
 
 	return func(c *fiber.Ctx) error {
@@ -84,7 +84,7 @@ type loginRequest struct {
 func handleLogin(db *pgxpool.Pool) fiber.Handler {
 	argon := newArgon2idHash()
 
-	const stmt = `SELECT password_hash, password_salt FROM account WHERE email = $1`
+	const stmt = `SELECT password_hash, password_salt FROM user_account WHERE email = $1`
 
 	return func(c *fiber.Ctx) error {
 		var request loginRequest
@@ -115,8 +115,8 @@ type profileUpdateRequest struct {
 	AvatarBase64 string `json:"avatar_base64"`
 }
 
-func handleAvatarUpdate(db *pgxpool.Pool) fiber.Handler {
-	const stmt = `UPSERT INTO avatar (account_id, image) VALUES ($1, $2)`
+func handleProfileUpdate(db *pgxpool.Pool) fiber.Handler {
+	const stmt = `UPSERT INTO user_profile (account_id, image) VALUES ($1, $2)`
 
 	return func(c *fiber.Ctx) error {
 		accountID := c.Params("id")

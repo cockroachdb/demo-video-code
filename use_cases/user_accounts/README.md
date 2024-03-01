@@ -24,7 +24,7 @@ Create cluster (local)
 
 ``` sh
 cockroach demo \
-  --demo-locality region=aws-us-east-1:region=aws-us-west-2:region=aws-eu-west-1:region=aws-eu-central-1:region=aws-ap-south-1:region=aws-ap-southeast-1 \
+  --demo-locality region=aws-us-east-1:region=aws-eu-central-1:region=aws-ap-southeast-1 \
   --nodes 6 \
   --no-example-database \
   --insecure
@@ -48,18 +48,18 @@ Create database
 ``` sql
 CREATE DATABASE store
   PRIMARY REGION 'aws-eu-central-1'
-  REGIONS 'aws-eu-west-1', 'aws-us-east-1', 'aws-us-west-2', 'aws-ap-south-1', 'aws-ap-southeast-1';
+  REGIONS 'aws-us-east-1', 'aws-ap-southeast-1';
 
 SET enable_super_regions = 'on';
 
 ALTER DATABASE store ADD SUPER REGION 'us'
-  VALUES 'aws-us-east-1', 'aws-us-west-2';
+  VALUES 'aws-us-east-1';
 
 ALTER DATABASE store ADD SUPER REGION 'eu'
-  VALUES 'aws-eu-central-1', 'aws-eu-west-1';
+  VALUES 'aws-eu-central-1';
 
 ALTER DATABASE store ADD SUPER REGION 'ap'
-  VALUES 'aws-ap-south-1', 'aws-ap-southeast-1';
+  VALUES 'aws-ap-southeast-1';
 
 USE store;
 ```
@@ -67,7 +67,7 @@ USE store;
 Create tables
 
 ``` sql
-CREATE TABLE account (
+CREATE TABLE user_account (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "email" STRING NOT NULL,
 
@@ -77,8 +77,8 @@ CREATE TABLE account (
   UNIQUE ("email")
 ) LOCALITY REGIONAL BY ROW;
 
-CREATE TABLE avatar (
-  "account_id" UUID PRIMARY KEY REFERENCES account("id"),
+CREATE TABLE user_profile (
+  "account_id" UUID PRIMARY KEY REFERENCES user_account("id"),
   "image" BYTES,
 
   FAMILY f1 ("account_id"),
@@ -124,7 +124,7 @@ Registration
 curl -s \
   -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"email": "example@acme.com", "password": "s0m3th1ing_S3creT"}' \
+  -d '{"email": "example@example.com", "password": "S3creT"}' \
     http://localhost:3000/auth/register | jq
 ```
 
@@ -134,7 +134,7 @@ Login
 curl -s \
   -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"email": "example@acme.com", "password": "s0m3th1ing_S3creT"}' \
+  -d '{"email": "example@example.com", "password": "S3creT"}' \
     http://localhost:3000/auth/login | jq
 ```
 
@@ -145,39 +145,79 @@ curl -s \
   -X PATCH \
   -H 'Content-Type: application/json' \
   -d '{"avatar_base64": "fJmKaAaIMnhBd4twz2NmAmlUYxut6vIOtQ=="}' \
-    http://localhost:3000/accounts/4e7dff6e-8cf6-48c1-98e5-1c39ce417275/avatar | jq
+    http://localhost:3000/accounts/4e7dff6e-8cf6-48c1-98e5-1c39ce417275/profile | jq
 ```
 
 ### Test deployed service
 
-Registration
+UK user
 
 ``` sh
 curl -s \
-  -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"email": "example@acme.com", "password": "s0m3th1ing_S3creT"}' \
+  -d '{"email": "uk@example.com", "password": "S3creT"}' \
     https://crdb-user-accounts.fly.dev/auth/register | jq
-```
 
-Login
-
-``` sh
 curl -s \
-  -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"email": "example@acme.com", "password": "s0m3th1ing_S3creT"}' \
-    https://crdb-user-accounts.fly.d/auth/login | jq
-```
+  -d '{"email": "uk@example.com", "password": "S3creT"}' \
+    https://crdb-user-accounts.fly.dev/auth/login | jq
 
-Profile update
-
-``` sh
 curl -s \
   -X PATCH \
   -H 'Content-Type: application/json' \
-  -d '{"avatar_base64": "fJmKaAaIMnhBd4twz2NmAmlUYxut6vIOtQ=="}' \
-    https://crdb-user-accounts.fly.d/accounts/882b9f14-99c3-40f4-8390-f62dedf201c2/avatar | jq
+  -d '{"avatar_base64": "XESwaOsrxXJ5ygq2a6O63z5kzG0="}' \
+    https://crdb-user-accounts.fly.dev/accounts/7976f142-b33f-483a-bc95-7cce6d58153e/profile | jq
+```
+
+US user
+
+``` sh
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "us@example.com", "password": "S3creT"}' \
+    https://crdb-user-accounts.fly.dev/auth/register | jq
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "us@example.com", "password": "S3creT"}' \
+    https://crdb-user-accounts.fly.dev/auth/login | jq
+
+curl -s \
+  -X PATCH \
+  -H 'Content-Type: application/json' \
+  -d '{"avatar_base64": "Co4MAYOmsOuZRE1vSxJrpCY2LOE="}' \
+    https://crdb-user-accounts.fly.dev/accounts/f7eed422-17ed-48cc-875c-33e2012bc8bb/profile | jq
+```
+
+Singapore user
+
+``` sh
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "singapore@example.com", "password": "S3creT"}' \
+    https://crdb-user-accounts.fly.dev/auth/register | jq
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "singapore@example.com", "password": "S3creT"}' \
+    https://crdb-user-accounts.fly.dev/auth/login | jq
+
+curl -s \
+  -X PATCH \
+  -H 'Content-Type: application/json' \
+  -d '{"avatar_base64": "zEjhJn0slTOIHdA/p/zzymeaO2g="}' \
+    https://crdb-user-accounts.fly.dev/accounts/f7eed422-17ed-48cc-875c-33e2012bc8bb/profile | jq
+```
+
+Check data
+
+``` sql
+SELECT id, email, crdb_region
+FROM user_account;
+
+SELECT *
+FROM user_profile;
 ```
 
 ### Teardown
