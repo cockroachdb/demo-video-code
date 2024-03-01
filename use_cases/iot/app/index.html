@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Map Update Example</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { width: 600px; height: 400px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map and set its view to a dummy location
+        var map = L.map('map').setView([0, 0], 13);
+
+        // Set up the tiles for the map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Function to update the map location
+        function updateMapLocation() {
+            fetch('https://api.example.com/location')
+                .then(response => response.json())
+                .then(data => {
+                    // Assuming the API returns a JSON object with latitude and longitude
+                    const { latitude, longitude } = data;
+
+                    // Update the map view to the new location
+                    map.setView([latitude, longitude], 13);
+                })
+                .catch(error => console.log('Error:', error));
+        }
+
+        // Update the map location every second
+        setInterval(updateMapLocation, 1000);
+    </script>
+</body>
+</html>
