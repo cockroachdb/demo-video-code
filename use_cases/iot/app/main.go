@@ -65,7 +65,8 @@ func handleGetAircraftDiagnostics(db *pgxpool.Pool) fiber.Handler {
 									st_y(location),
 									heading,
 									crdb_region,
-									last_update
+									last_update,
+									last_update_latency_ms
 								FROM aircraft_diagnostics`
 
 	return func(c *fiber.Ctx) error {
@@ -81,7 +82,7 @@ func handleGetAircraftDiagnostics(db *pgxpool.Pool) fiber.Handler {
 		var diagnostics []aircraftDiagnostics
 		for rows.Next() {
 			var d aircraftDiagnostics
-			if err = rows.Scan(&d.AircraftID, &d.BatteryLevel, &d.Lon, &d.Lat, &d.Heading, &d.Region, &d.LastUpdate); err != nil {
+			if err = rows.Scan(&d.AircraftID, &d.BatteryLevel, &d.Lon, &d.Lat, &d.Heading, &d.Region, &d.LastUpdate, &d.LastUpdateLatencyMS); err != nil {
 				log.Printf("error scanning location: %v", err)
 				return fiber.NewError(fiber.StatusInternalServerError, "error scanning location")
 			}
@@ -94,13 +95,14 @@ func handleGetAircraftDiagnostics(db *pgxpool.Pool) fiber.Handler {
 }
 
 type aircraftDiagnostics struct {
-	AircraftID   string    `json:"aircraft_id"`
-	BatteryLevel float64   `json:"battery_id"`
-	Lat          float64   `json:"lat"`
-	Lon          float64   `json:"lon"`
-	Heading      int       `json:"heading"`
-	Region       string    `json:"region"`
-	LastUpdate   time.Time `json:"last_update"`
+	AircraftID          string    `json:"aircraft_id"`
+	BatteryLevel        float64   `json:"battery_id"`
+	Lat                 float64   `json:"lat"`
+	Lon                 float64   `json:"lon"`
+	Heading             int       `json:"heading"`
+	Region              string    `json:"region"`
+	LastUpdate          time.Time `json:"last_update"`
+	LastUpdateLatencyMS int       `json:"last_update_latency_ms"`
 }
 
 func work(db *pgxpool.Pool, region string) {
@@ -148,13 +150,22 @@ func updateAircraft(db *pgxpool.Pool, aircraft []aircraftDiagnostics) error {
 	const stmtFmt = `UPDATE aircraft_diagnostics SET
 									   battery_level = $1,
 										 location = 'POINT(%f %f)',
-										 last_update = now()
+										 last_update = now(),
+										 last_update_latency_ms = EXTRACT(MILLISECONDS FROM (now() - $3))
 									 WHERE aircraft_id = $2`
 
 	for _, a := range aircraft {
 		lat, lon := moveAircraft(a.Lat, a.Lon, 10, float64(a.Heading))
 
-		if _, err := db.Exec(context.Background(), fmt.Sprintf(stmtFmt, lon, lat), a.BatteryLevel-0.25, a.AircraftID); err != nil {
+		_, err := db.Exec(
+			context.Background(),
+			fmt.Sprintf(stmtFmt, lon, lat),
+			a.BatteryLevel-0.25,
+			a.AircraftID,
+			time.Now(),
+		)
+
+		if err != nil {
 			return fmt.Errorf("updating diagnostics: %w", err)
 		}
 	}

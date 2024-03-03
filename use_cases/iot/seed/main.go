@@ -131,16 +131,17 @@ func mustPopulateAircraftAdministration(db *pgxpool.Pool, aircraft []aircraft) {
 }
 
 type aircraftDiagnostics struct {
-	batteryLevel float32
-	lat          float64
-	lon          float64
-	heading      int
+	batteryLevel        float32
+	lat                 float64
+	lon                 float64
+	heading             int
+	lastUpdateLatencyMS int
 }
 
 func mustPopulateAircraftDiagnostics(db *pgxpool.Pool, aircraft []aircraft) {
 	fmt.Println("populating aircraft diagnostics...")
 
-	stmtFmt := `INSERT INTO aircraft_diagnostics (aircraft_id, battery_level, location, heading) VALUES ($1, $2, 'POINT(%f %f)', $3)`
+	stmtFmt := `INSERT INTO aircraft_diagnostics (aircraft_id, battery_level, location, heading, last_update_latency_ms) VALUES ($1, $2, 'POINT(%f %f)', $3, $4)`
 
 	batch := pgx.Batch{}
 	for _, a := range aircraft {
@@ -151,6 +152,7 @@ func mustPopulateAircraftDiagnostics(db *pgxpool.Pool, aircraft []aircraft) {
 			a.id,
 			d.batteryLevel,
 			d.heading,
+			0,
 		)
 
 		aircraft = append(aircraft, a)

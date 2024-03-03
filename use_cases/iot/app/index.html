@@ -21,10 +21,8 @@
 			const eu_icon = L.icon({ iconUrl: "icon_eu.png" });
 			const ap_icon = L.icon({ iconUrl: "icon_ap.png" });
 
-      // Initialize the map and set its view to a dummy location
       var map = L.map("map").setView([0, 0], 3);
 
-      // Set up the tiles for the map
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 10,
         attribution: "© OpenStreetMap contributors",
@@ -35,26 +33,31 @@
 			function getIcon(region) {
 				switch (region) {
 					case 'aws-us-east-1':
-						return us_icon
+						return 'icon_us.png'
 					case 'aws-ap-southeast-1':
-						return ap_icon
+						return 'icon_ap.png'
 					case 'aws-eu-central-1':
-						return eu_icon
+						return 'icon_eu.png'
 					default:
 						console.log(`${region} is not a valid region`)
 				}
 			}
 
       function updateMapLocation() {
-        fetch("http://localhost:3000")
+        fetch("https://crdb-iot.fly.dev")
+				// fetch("http://localhost:3000")
           .then((response) => response.json())
           .then((data) => {
             markerGroup.clearLayers();
 
             data.forEach((item) => {
-              const { lat, lon, region, heading } = item;
+              const { lat, lon, region, heading, last_update_latency_ms } = item;
               var marker = L.marker([lat, lon], {
-                icon: getIcon(region),
+								icon: L.divIcon({
+									className: 'my-div-icon',
+									html: `<img src="${getIcon(region)}"/>
+												 <span>${last_update_latency_ms}ms</span>`
+									}),
 								rotationAngle: (heading + 270) % 360
               }).addTo(markerGroup);
             });
@@ -62,7 +65,6 @@
           .catch((error) => console.log("Error:", error));
       }
 
-      // Update the map location every second
       setInterval(updateMapLocation, 1000);
     </script>
   </body>

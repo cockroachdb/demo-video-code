@@ -100,7 +100,8 @@ CREATE TABLE aircraft_diagnostics (
       ELSE 'aws-eu-central-1'::crdb_internal_region
     END
   ) STORED,
-  "last_update" TIMESTAMPTZ NOT NULL DEFAULT now()
+  "last_update" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "last_update_latency_ms" INT NOT NULL
 ) LOCALITY REGIONAL BY ROW;
 ```
 
