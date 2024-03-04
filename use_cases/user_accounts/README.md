@@ -33,14 +33,14 @@ cockroach demo \
 Create cluster (Cloud)
 
 ``` sh
-(cd _database && terraform init)
-(cd _database && terraform apply --auto-approve)
+(cd _database/basic && terraform init)
+(cd _database/basic && terraform apply --auto-approve)
 ```
 
 Connect to cluster
 
 ``` sh
-cockroach sql --url $(cd _database && terraform output -raw shell_url)
+cockroach sql --url $(cd _database/basic && terraform output -raw shell_url)
 ```
 
 Create database
@@ -95,7 +95,7 @@ fly app create crdb-user-accounts --org crl-devrel
 
 fly secrets set \
   --app crdb-user-accounts \
-  DATABASE_URL=$(cd _database && terraform output -raw user_accounts_app_url)
+  DATABASE_URL=$(cd _database/basic && terraform output -raw user_accounts_app_url)
 
 cp go.* user_accounts/app
 (cd user_accounts/app && fly deploy --ha=false)
@@ -114,7 +114,7 @@ DATABASE_URL="postgres://root@localhost:26257/store?sslmode=disable" \
 Test local service (Cloud)
 
 ``` sh
-DATABASE_URL=$(cd _database && terraform output -raw user_accounts_app_url) \
+DATABASE_URL=$(cd _database/basic && terraform output -raw user_accounts_app_url) \
   go run user_accounts/app/main.go
 ```
 
@@ -218,5 +218,5 @@ DROP DATABASE store;
 Cluster
 
 ``` sh
-(cd _database && terraform destroy --auto-approve)
+(cd _database/basic && terraform destroy --auto-approve)
 ```
