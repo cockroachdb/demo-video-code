@@ -75,7 +75,7 @@ func mustPopulateAircraft(db *pgxpool.Pool) []aircraft {
 
 	var aircraft []aircraft
 	batch := pgx.Batch{}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50; i++ {
 		a := randomAircraft()
 
 		batch.Queue(

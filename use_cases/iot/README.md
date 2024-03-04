@@ -145,21 +145,11 @@ US aircraft
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-us-east-1" \
 LISTEN_ADDR=":3000" \
-  go run iot/app/main.go
-```
-
-EU aircraft
-
-``` sh
+  go run iot/app/main.go \ &
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-eu-central-1" \
 LISTEN_ADDR=":3001" \
-  go run iot/app/main.go
-```
-
-AP aircraft
-
-``` sh
+  go run iot/app/main.go \ &
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 REGION="aws-ap-southeast-1" \
 LISTEN_ADDR=":3002" \

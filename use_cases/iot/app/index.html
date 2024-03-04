@@ -14,12 +14,12 @@
   <body>
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-		<script src="leaflet.rotatedMarker.js"></script>
+    <script src="leaflet.rotatedMarker.js"></script>
 
     <script>
       const us_icon = L.icon({ iconUrl: "icon_us.png" });
-			const eu_icon = L.icon({ iconUrl: "icon_eu.png" });
-			const ap_icon = L.icon({ iconUrl: "icon_ap.png" });
+      const eu_icon = L.icon({ iconUrl: "icon_eu.png" });
+      const ap_icon = L.icon({ iconUrl: "icon_ap.png" });
 
       var map = L.map("map").setView([0, 0], 3);
 
@@ -30,35 +30,29 @@
 
       var markerGroup = L.layerGroup().addTo(map);
 
-			function getIcon(region) {
-				switch (region) {
-					case 'aws-us-east-1':
-						return 'icon_us.png'
-					case 'aws-ap-southeast-1':
-						return 'icon_ap.png'
-					case 'aws-eu-central-1':
-						return 'icon_eu.png'
-					default:
-						console.log(`${region} is not a valid region`)
-				}
-			}
+      const regions = {
+        "aws-us-east-1": "icon_us.png",
+        "aws-ap-southeast-1": "icon_ap.png",
+        "aws-eu-central-1": "icon_eu.png",
+      };
 
       function updateMapLocation() {
-        fetch("https://crdb-iot.fly.dev")
-				// fetch("http://localhost:3000")
+        // fetch("https://crdb-iot.fly.dev")
+          fetch("http://localhost:3000")
           .then((response) => response.json())
           .then((data) => {
             markerGroup.clearLayers();
 
             data.forEach((item) => {
-              const { lat, lon, region, heading, last_update_latency_ms } = item;
+              const { lat, lon, region, heading, last_update_latency_ms } =
+                item;
               var marker = L.marker([lat, lon], {
-								icon: L.divIcon({
-									className: 'my-div-icon',
-									html: `<img src="${getIcon(region)}"/>
-												 <span>${last_update_latency_ms}ms</span>`
-									}),
-								rotationAngle: (heading + 270) % 360
+                icon: L.divIcon({
+                  className: "my-div-icon",
+                  html: `<img src="${regions[region]}"/>
+												 <span>${last_update_latency_ms}ms</span>`,
+                }),
+                rotationAngle: (heading + 270) % 360,
               }).addTo(markerGroup);
             });
           })
