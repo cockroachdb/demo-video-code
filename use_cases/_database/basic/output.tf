@@ -14,7 +14,7 @@ output "shell_url" {
 output "user_accounts_app_url" {
   sensitive = true
   value = format(
-    "postgres://rob:%s@%s:26257/store?sslmode=require",
+    "postgres://rob:%s@%s:26257/news_stand?sslmode=require",
     random_password.rob.result,
     replace(
       cockroach_cluster.demo.regions[1].sql_dns,

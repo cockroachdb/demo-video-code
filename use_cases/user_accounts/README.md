@@ -25,7 +25,7 @@ Create cluster (local)
 ``` sh
 cockroach demo \
   --demo-locality region=aws-us-east-1:region=aws-eu-central-1:region=aws-ap-southeast-1 \
-  --nodes 6 \
+  --nodes 3 \
   --no-example-database \
   --insecure
 ```
@@ -46,22 +46,22 @@ cockroach sql --url $(cd _database/basic && terraform output -raw shell_url)
 Create database
 
 ``` sql
-CREATE DATABASE store
+CREATE DATABASE accounts
   PRIMARY REGION 'aws-eu-central-1'
   REGIONS 'aws-us-east-1', 'aws-ap-southeast-1';
 
 SET enable_super_regions = 'on';
 
-ALTER DATABASE store ADD SUPER REGION 'us'
+ALTER DATABASE accounts ADD SUPER REGION 'us'
   VALUES 'aws-us-east-1';
 
-ALTER DATABASE store ADD SUPER REGION 'eu'
+ALTER DATABASE accounts ADD SUPER REGION 'eu'
   VALUES 'aws-eu-central-1';
 
-ALTER DATABASE store ADD SUPER REGION 'ap'
+ALTER DATABASE accounts ADD SUPER REGION 'ap'
   VALUES 'aws-ap-southeast-1';
 
-USE store;
+USE accounts;
 ```
 
 Create tables
@@ -72,9 +72,9 @@ SET enable_auto_rehoming = on;
 CREATE TABLE user_account (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "email" STRING NOT NULL,
-
   "password_hash" BYTES NOT NULL,
   "password_salt" BYTES NOT NULL,
+  "registered_on" DATE NOT NULL DEFAULT now(),
 
   UNIQUE ("email")
 ) LOCALITY REGIONAL BY ROW;
@@ -107,7 +107,7 @@ rm user_accounts/app/go.*
 Test local service (local)
 
 ``` sh
-DATABASE_URL="postgres://root@localhost:26257/store?sslmode=disable" \
+DATABASE_URL="postgres://root@localhost:26257/accounts?sslmode=disable" \
   go run user_accounts/app/main.go
 ```
 
@@ -116,6 +116,32 @@ Test local service (Cloud)
 ``` sh
 DATABASE_URL=$(cd _database/basic && terraform output -raw user_accounts_app_url) \
   go run user_accounts/app/main.go
+```
+
+### Launch frontend (local)
+
+``` sh
+(cd user_accounts/app/frontend && npm run dev -- --open)
+```
+
+### Test local service
+
+``` sh
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "uk@example.com", "password": "S3creT"}' \
+    http://localhost:3000/auth/register | jq
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "uk@example.com", "password": "S3creT"}' \
+    http://localhost:3000/auth/login | jq
+
+curl -s \
+  -X PATCH \
+  -H 'Content-Type: application/json' \
+  -d '{"avatar_base64": "XESwaOsrxXJ5ygq2a6O63z5kzG0="}' \
+    http://localhost:3000/accounts/7976f142-b33f-483a-bc95-7cce6d58153e/profile | jq
 ```
 
 ### Test deployed service

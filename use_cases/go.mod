@@ -7,6 +7,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.1
 	github.com/google/uuid v1.5.0
 	github.com/jackc/pgx/v5 v5.5.3
+	github.com/o1egl/govatar v0.4.1
 	github.com/samber/lo v1.39.0
 	golang.org/x/crypto v0.17.0
 )
