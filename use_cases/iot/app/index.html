@@ -37,8 +37,8 @@
       };
 
       function updateMapLocation() {
-        // fetch("https://crdb-iot.fly.dev")
-          fetch("http://localhost:3000")
+        fetch("https://crdb-iot.fly.dev")
+          // fetch("http://localhost:3000")
           .then((response) => response.json())
           .then((data) => {
             markerGroup.clearLayers();

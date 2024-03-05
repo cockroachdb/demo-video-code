@@ -24,7 +24,7 @@ resource "random_password" "rob" {
   length  = 50
 }
 
-resource "cockroach_sql_user" "gcp" {
+resource "cockroach_sql_user" "rob" {
   cluster_id = cockroach_cluster.demo.id
   name       = "rob"
   password   = random_password.rob.result

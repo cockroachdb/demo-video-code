@@ -238,7 +238,7 @@ Database (required before user can be deleted)
 
 ``` sql
 SET sql_safe_updates = false;
-DROP DATABASE store;
+DROP DATABASE accounts;
 ```
 
 Cluster

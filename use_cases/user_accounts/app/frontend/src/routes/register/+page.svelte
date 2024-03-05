@@ -5,7 +5,8 @@
   let password = "";
 
   async function handleSubmit(e) {
-    await fetch("http://localhost:3000/auth/register/", {
+    console.log(email, password)
+    await fetch("https://crdb-user-accounts.fly.dev/auth/register/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
