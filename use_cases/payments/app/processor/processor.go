@@ -56,7 +56,7 @@ func handlePayment(db *pgxpool.Pool) fiber.Handler {
 				"psp": uuid.NewString(),
 			})
 		case "declined":
-			return fiber.NewError(fiber.StatusUnauthorized, "failed")
+			return fiber.NewError(fiber.StatusUnauthorized, "declined")
 		default:
 			return fiber.NewError(fiber.StatusInternalServerError, "failed")
 		}

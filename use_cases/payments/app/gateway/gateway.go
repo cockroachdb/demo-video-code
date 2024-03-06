@@ -8,12 +8,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	_http "crdb-use-cases/_code/http"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -47,14 +49,48 @@ func main() {
 	router := fiber.New()
 	router.Use(cors.New(cors.ConfigDefault))
 
+	router.Post("/users/:id/cards", handleAddCard(db, secret))
 	router.Post("/orders/:id/checkout", handlePayment(db, processorClient, secret))
 
 	log.Fatal(router.Listen(":3000"))
 }
 
 type card struct {
-	CardNumber string
-	Expiry     time.Time
+	CardNumber string      `json:"card_number"`
+	Expiry     pgtype.Date `json:"expiry"`
+	IsDefault  bool        `json:"is_default"`
+}
+
+type date time.Time
+
+func (d *date) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	parsed, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return err
+	}
+
+	*d = date(parsed)
+	return nil
+}
+
+func handleAddCard(db *pgxpool.Pool, secret string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := c.Params("id")
+
+		var card card
+		if err := c.BodyParser(&card); err != nil {
+			log.Printf("error parsing card: %v", err)
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "error parsing card")
+		}
+
+		if err := addCard(c.Context(), db, userID, secret, card); err != nil {
+			log.Printf("error adding card: %v", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "error adding card")
+		}
+
+		return nil
+	}
 }
 
 type paymentResult struct {
@@ -84,6 +120,32 @@ func handlePayment(db *pgxpool.Pool, client *http.Client, secret string) fiber.H
 
 		return c.JSON(result)
 	}
+}
+
+func addCard(ctx context.Context, db *pgxpool.Pool, userID, secret string, card card) error {
+	const stmt = `WITH
+									crypto AS (
+										SELECT gen_random_bytes(32) AS iv
+									)
+								INSERT INTO card_details ("user_id", "card_number", "card_number_iv", "expiry", "is_default")
+								SELECT
+									$1,
+									encrypt_iv(
+										$2::BYTES,
+										$3::BYTES,
+										iv,
+										'aes'
+									),
+									iv,
+									$4,
+									$5
+								FROM crypto`
+
+	if _, err := db.Exec(ctx, stmt, userID, card.CardNumber, secret, card.Expiry, card.IsDefault); err != nil {
+		return fmt.Errorf("inserting card: %w", err)
+	}
+
+	return nil
 }
 
 func fetchCard(ctx context.Context, db *pgxpool.Pool, orderID, secret string) (card, error) {
@@ -123,17 +185,23 @@ func makePayment(client *http.Client, c card) (paymentResult, error) {
 	if err != nil {
 		return paymentResult{}, fmt.Errorf("making payment request: %w", err)
 	}
+	defer response.Body.Close()
+
+	var buf bytes.Buffer
+	if _, err = buf.ReadFrom(response.Body); err != nil {
+		return paymentResult{}, fmt.Errorf("reading payment result: %w", err)
+	}
 
 	switch response.StatusCode {
 	case http.StatusOK:
 		var result paymentResult
-		if err = json.NewDecoder(response.Body).Decode(&result); err != nil {
+		if err = json.Unmarshal(buf.Bytes(), &result); err != nil {
 			return result, fmt.Errorf("reading payment result: %w", err)
 		}
 
 		return result, nil
 	default:
-		return paymentResult{}, fmt.Errorf("")
+		return paymentResult{}, fmt.Errorf(string(buf.Bytes()))
 	}
 }
 
