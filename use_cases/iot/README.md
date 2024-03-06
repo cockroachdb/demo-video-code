@@ -172,6 +172,33 @@ open iot/app/index.html
 
 * My example is very contrived and you can make better use of geometries to determine region.
 
+### Differentiators
+
+* Consistency
+  * Data has to be correct, *all the time* - that's the purpose of your device fleet
+  * In a system like this, eventual consistency adds complexity both in terms of app development - you need to be sure that the world that your devices are reporting, are accurate to the real world at any time
+  * With a database that's always consistent, that database becomes something you don't have to manage or code against - you just read and write to it and can trust that your data is accurate
+
+* Zero Downtime
+  * IoT systems are always on, and always active - you can't afford to
+    * Take them down for planned maintenance
+    * Have them down because of *unplanned* events
+
+* Scalability
+  * Device fleets might span the globe and contain millions of individual devices
+  * You don't want to have to be on-the-ground, manually sharding database servers to accomodate
+  * Traditional and Cloud RDBMSs will allow you to scale for reads but won't allow you scale for writes - devices in an IoT fleet will need to be able to write. If your one write node isn't close to your device, by the time that write has reached your database, it's out of date
+
+* Security and Compliance
+  * The data these devices are managing or sending might be sensitive
+  * CockroachDB's SSO and MFA in Cockroach Cloud, along with
+  * RBAC
+  * Encryption at rest, and in flight
+  * Audit logging
+  * CMEKs
+  * Egress Perimeter Controls
+  * ...will keep that sensitive data safe
+
 ### Debug statements
 
 Show distribution of aircraft in regions

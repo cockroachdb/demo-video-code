@@ -58,7 +58,7 @@
       <div>
         <input
           type="submit"
-          value="Log in"
+          value="Login"
           class="w-full p-4 bg-brand-electric-purple text-white rounded-md cursor-pointer"
         />
       </div>

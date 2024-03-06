@@ -56,7 +56,7 @@
       <div>
         <input
           type="submit"
-          value="Log in"
+          value="Register"
           class="w-full p-4 bg-blue-500 text-white rounded-md bg-brand-electric-purple cursor-pointer"
         />
       </div>

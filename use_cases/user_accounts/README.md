@@ -5,6 +5,39 @@
 * Data pinning to help with regulatory compliance
 * Rehoming for users moving between locations
 
+### Differentiators
+
+* Security
+  * In any system that handles user information, security is critical
+  * We've seen from all too many data breaches, the impact of not adequately protecting user data
+  * CockroachDB's
+    * Encryption at rest, encryption in-flight
+    * SSO, MFA, RBAC
+    * CMEKs
+    * Egress perimeter controls
+    * ...all work to protect your users' data
+
+* Resilience - takes care of the database side of "always on" or "zero downtime"
+
+* Scalability - it allows you to scale as your user base grows, you simply add more nodes to the cluster
+  * [1s of internet activity](https://www.zettasphere.com/mind-boggling-stats-for-1-second-of-internet-activity/)
+    * Given how easy it is to scale out a CockroachDB cluster, scaling is simply a numbers game
+    * 9 node cluster to handle 5,800 tweets/s
+    * 27 node cluster to handle 55,000 facebook posts/s
+    * 54 node cluster to handle 740,741 whatsapp messages/s
+    * Some of our customers are running larger clusters for some of the world's most interesting use cases
+  * Adding nodes means gaining both read and *write* capacity
+
+* Consistency - these are table stakes for any use case, and user accounts and metadata is no different
+
+* Online schema changes - add new features to your application *during business hours* when your team is available.
+  * You can move much quicker if the changes you're making and features you're adding aren't breaking things.
+  * No one likes maintenance windows and that includes your users
+
+* Multi-region data placement - create policies to ensure that user data stays local to them
+  * This helps you comply with regulations
+  * Keeps read and write latencies for all users low
+
 ### Scenarios
 
 * Register
