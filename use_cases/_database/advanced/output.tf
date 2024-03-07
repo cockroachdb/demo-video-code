@@ -2,6 +2,10 @@ output "cluster_id" {
   value = cockroach_cluster.demo.id
 }
 
+output "account_id" {
+  value = cockroach_cluster.demo.account_id
+}
+
 output "shell_url" {
   sensitive = true
   value = format(

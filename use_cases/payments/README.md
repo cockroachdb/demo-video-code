@@ -74,11 +74,15 @@ Create cluster (Cloud)
 
 ``` sh
 (cd _database/advanced && terraform init)
-(cd _database/advanced && terraform apply)
-
-# Might need a second run due to a race condition.
+(cd _database/advanced && terraform apply -var-file="payments.tfvars")
 
 export CLUSTER_ID=$(cd _database/advanced && terraform output -raw cluster_id)
+export ACCOUNT_ID=$(cd _database/advanced && terraform output -raw account_id)
+
+(cd payments/infra && terraform init)
+(cd payments/infra && terraform apply \
+  -var cockroach_cluster_account_id=$ACCOUNT_ID \
+  -var cockroach_cluster_id=$CLUSTER_ID)
 ```
 
 Download the certificate
@@ -91,6 +95,20 @@ Connect to cluster
 
 ``` sh
 cockroach sql --url "$(cd _database/advanced && terraform output -raw shell_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/562b7548-fc68-4111-8204-4d8356a31dd2/crdb-use-cases-ca.crt"
+```
+
+### AWS PrivateLink
+
+Create the VPC endpoints
+
+``` sh
+aws ec2 create-vpc-endpoint \
+  --region eu-central-1 \
+  --vpc-id vpc-0d1a06ee7c65fa1bc \
+  --subnet-ids {SUBNET_ID1} {SUBNET_ID2} \
+  --vpc-endpoint-type Interface \
+  --security-group-ids {SECURITY_GROUP_ID1} {SECURITY_GROUP_ID2} \
+  --service-name com.amazonaws.vpce.eu-central-1.vpce-svc-034c9a208c8e6f4a6
 ```
 
 Create database
@@ -282,4 +300,27 @@ SELECT
   o.status,
   o.payment_reference
 FROM orders o;
+```
+
+### Teardown
+
+Database
+
+``` sql
+SET sql_safe_updates = false;
+DROP DATABASE payment;
+```
+
+AWS infra
+
+``` sh
+(cd payments/infra && terraform destroy \
+  -var cockroach_cluster_account_id=$ACCOUNT_ID \
+  -var cockroach_cluster_id=$CLUSTER_ID)
+```
+
+CockroachDB infra
+
+``` sh
+(cd _database/advanced && terraform destroy -var-file="payments.tfvars")
 ```
