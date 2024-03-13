@@ -21,7 +21,7 @@ output "iot_app_url" {
     "postgres://rob:%s@%s:26257/iot?sslmode=require",
     random_password.rob.result,
     replace(
-      cockroach_cluster.demo.regions[1].sql_dns,
+      cockroach_cluster.demo.regions[0].sql_dns,
       "/aws-[[:word:]]+-[[:word:]]+-[[:word:]]./",
       ""
     )

@@ -1,0 +1,147 @@
+inputs:
+
+  - name: market
+    type: csv
+    source:
+      file_name: inputs/market.csv 
+
+tables:
+
+  - name: customer
+    count: 100000
+    unique_columns: [email]
+    columns:
+      - name: id
+        type: gen
+        processor:
+          value: ${uuid}
+      - name: email
+        type: gen
+        processor:
+          value: ${email}
+      - name: crdb_region
+        type: ref
+        processor:
+          table: market
+          column: crdb_region
+
+  - name: product
+    count: 1000
+    unique_columns: [name]
+    columns:
+      - name: id
+        type: gen
+        processor:
+          value: ${uuid}
+      - name: name
+        type: gen
+        processor:
+          value: ${adjective} ${adverb} ${noun}
+  
+  - name: market_product
+    columns:
+      - name: id
+        type: gen
+        processor:
+          value: ${uuid}
+      - name: product_id
+        type: each
+        processor:
+          table: product
+          column: id
+      - name: market
+        type: each
+        processor:
+          table: market
+          column: code
+      - name: amount
+        type: gen
+        processor:
+          value: ${uint8}
+      - name: currency
+        type: match
+        processor:
+          source_table: market
+          source_column: code
+          source_value: currency
+          match_column: market
+  
+  - name: stock
+    columns:
+      - name: market_product_id
+        type: each
+        processor:
+          table: market_product
+          column: id
+      - name: quantity_on_hand
+        type: gen
+        processor:
+          value: ${uint8}
+      - name: quantity_on_order
+        type: gen
+        processor:
+          value: ${uint8}
+      - name: market
+        type: match
+        suppress: true
+        processor:
+          source_table: market_product
+          source_column: id
+          source_value: market
+          match_column: market_product_id
+      - name: crdb_region
+        type: match
+        processor:
+          source_table: market
+          source_column: code
+          source_value: crdb_region
+          match_column: market
+  
+  - name: basket
+    count: 5000
+    columns:
+      - name: market_product_id
+        type: ref
+        processor:
+          table: market_product
+          column: id
+      - name: customer_id
+        type: ref
+        processor:
+          table: customer
+          column: id
+      - name: quantity
+        type: set
+        processor:
+          values: [1, 2, 5, 10]
+          weights: [10, 5, 2, 1]
+      - name: market
+        type: match
+        suppress: true
+        processor:
+          source_table: market_product
+          source_column: id
+          source_value: market
+          match_column: market_product_id
+      - name: crdb_region
+        type: match
+        processor:
+          source_table: market
+          source_column: code
+          source_value: crdb_region
+          match_column: market
+
+  - name: region_market
+    columns:
+      - name: market
+        type: each
+        processor:
+          table: market
+          column: code
+      - name: region
+        type: match
+        processor:
+          source_table: market
+          source_column: code
+          source_value: crdb_region
+          match_column: market

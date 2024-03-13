@@ -128,17 +128,7 @@ func addCard(ctx context.Context, db *pgxpool.Pool, userID, secret string, card 
 										SELECT gen_random_bytes(32) AS iv
 									)
 								INSERT INTO card_details ("user_id", "card_number", "card_number_iv", "expiry", "is_default")
-								SELECT
-									$1,
-									encrypt_iv(
-										$2::BYTES,
-										$3::BYTES,
-										iv,
-										'aes'
-									),
-									iv,
-									$4,
-									$5
+								SELECT $1, encrypt_iv($2::BYTES, $3::BYTES, iv, 'aes'), iv, $4, $5
 								FROM crypto`
 
 	if _, err := db.Exec(ctx, stmt, userID, card.CardNumber, secret, card.Expiry, card.IsDefault); err != nil {
@@ -201,7 +191,7 @@ func makePayment(client *http.Client, c card) (paymentResult, error) {
 
 		return result, nil
 	default:
-		return paymentResult{}, fmt.Errorf(string(buf.Bytes()))
+		return paymentResult{}, fmt.Errorf(buf.String())
 	}
 }
 

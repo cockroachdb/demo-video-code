@@ -78,7 +78,11 @@ Create cluster (Cloud)
 
 export CLUSTER_ID=$(cd _database/advanced && terraform output -raw cluster_id)
 export ACCOUNT_ID=$(cd _database/advanced && terraform output -raw account_id)
+```
 
+Show that that none of the PCI readiness features are enabled
+
+``` sh
 (cd payments/infra && terraform init)
 (cd payments/infra && terraform apply \
   -var cockroach_cluster_account_id=$ACCOUNT_ID \
@@ -154,10 +158,12 @@ CREATE TABLE card_details (
 
 CREATE TYPE order_status AS ENUM ('pending', 'paid');
 
+CREATE TYPE amount AS ("value" INT, "currency" STRING);
+
 CREATE TABLE orders (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "user_id" UUID NOT NULL REFERENCES users("id"),
-  "total" DECIMAL NOT NULL,
+  "amount" amount NOT NULL,
   "status" order_status NOT NULL DEFAULT 'pending',
   "payment_reference" STRING,
   "ts" TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -234,8 +240,8 @@ Seed the tables
 INSERT INTO users ("id", "email") VALUES
   ('aac751f6-12ce-441f-a430-430b67e102fb', 'a@example.com');
 
-INSERT INTO orders ("id", "user_id", "total", "status") VALUES
-  ('1e1ff8f6-3644-4f20-8992-7e95d0dd23fe', 'aac751f6-12ce-441f-a430-430b67e102fb', 100, 'pending');
+INSERT INTO orders ("id", "user_id", "amount", "status") VALUES
+  ('1e1ff8f6-3644-4f20-8992-7e95d0dd23fe', 'aac751f6-12ce-441f-a430-430b67e102fb', (100, 'USD'), 'pending');
 ```
 
 Add cards for the user

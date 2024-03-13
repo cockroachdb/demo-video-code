@@ -1,7 +1,0 @@
-### Demo Areas
-
-* 
-
-### Scenarios
-
-* 
