@@ -128,7 +128,6 @@ INSERT INTO "permissions" ("user_id", "file_id", "type") VALUES
   ('57448a35-5eae-413e-b60f-95c84f7354c5', 'a58d1908-1ccd-460c-b7a6-966f8b69bb7f', 'edit'),
   ('57448a35-5eae-413e-b60f-95c84f7354c5', 'ef05bad5-2ee0-4b1b-9744-e72ebc87cef8', 'read'),
   ('5bb18344-5d5c-4a60-b336-055b364304be', 'b628456b-03b9-4ed0-91cb-5fbede2a0f9e', 'comment'),
-  ('5bb18344-5d5c-4a60-b336-055b364304be', 'a35e1ad1-9a65-4802-bfa4-0e5f157ddc3e', 'edit'),
   ('cb2b2d1a-2c66-45a3-ba8a-5da35ef5787b', 'a35e1ad1-9a65-4802-bfa4-0e5f157ddc3e', 'read')
 ON CONFLICT DO NOTHING;
 ```
@@ -140,9 +139,13 @@ DATABASE_URL="postgres://root@localhost:26257/iam?sslmode=disable" \
 JWT_SECRET="KCaQ+qj96BVgumwgHZf" \
   go run iam/app/main.go
 
-API_URL="http://localhost:3000/"
 
-(cd iam/app/frontend && npm run dev)
+(
+  cd iam/app/frontend && \
+  API_URL="http://localhost:3000" \
+  JWT_SECRET="KCaQ+qj96BVgumwgHZf" \
+    npm run dev
+)
 ```
 
 ### Debugging statements
