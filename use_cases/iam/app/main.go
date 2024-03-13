@@ -97,7 +97,7 @@ func handleFolder(db *pgxpool.Pool) fiber.Handler {
 			return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 		}
 
-		files, err := getFiles(c.Context(), db, userID, fileID)
+		files, err := getFolder(c.Context(), db, userID, fileID)
 		if err != nil {
 			log.Printf("error fetching files: %v", err)
 			return fiber.NewError(fiber.StatusInternalServerError, "error fetching files")
@@ -232,10 +232,10 @@ func login(ctx context.Context, db *pgxpool.Pool, username string) (claims, erro
 }
 
 type file struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Permission string `json:"permission"`
-	IsFolder   bool   `json:"is_folder"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	PermissionType string `json:"permission_type"`
+	IsFolder       bool   `json:"is_folder"`
 }
 
 func getUserTopLevel(ctx context.Context, db *pgxpool.Pool, userID string) ([]file, error) {
@@ -280,7 +280,7 @@ func getUserTopLevel(ctx context.Context, db *pgxpool.Pool, userID string) ([]fi
 	var files []file
 	for rows.Next() {
 		var f file
-		if err = rows.Scan(&f.ID, &f.Name, &f.Permission, &f.IsFolder); err != nil {
+		if err = rows.Scan(&f.ID, &f.Name, &f.PermissionType, &f.IsFolder); err != nil {
 			return nil, fmt.Errorf("scanning file: %w", err)
 		}
 		files = append(files, f)
@@ -289,7 +289,7 @@ func getUserTopLevel(ctx context.Context, db *pgxpool.Pool, userID string) ([]fi
 	return files, nil
 }
 
-func getFiles(ctx context.Context, db *pgxpool.Pool, userID, fileID string) ([]file, error) {
+func getFolder(ctx context.Context, db *pgxpool.Pool, userID, fileID string) ([]file, error) {
 	const stmt = `WITH RECURSIVE
 									user_access AS (
 										SELECT f.id, f.parent_id, f.name, f.is_folder, p.type AS permission
@@ -311,8 +311,9 @@ func getFiles(ctx context.Context, db *pgxpool.Pool, userID, fileID string) ([]f
 										WHERE f.parent_id = $2
 										OR f.id = $2
 									)
-								SELECT df.*
+								SELECT df.*, ua.permission
 								FROM directory_files df
+								JOIN user_access ua ON df.id = ua.id
 								WHERE df.id != $2;`
 
 	rows, err := db.Query(ctx, stmt, userID, fileID)
@@ -323,7 +324,7 @@ func getFiles(ctx context.Context, db *pgxpool.Pool, userID, fileID string) ([]f
 	var files []file
 	for rows.Next() {
 		var f file
-		if err = rows.Scan(&f.ID, &f.Name, &f.IsFolder); err != nil {
+		if err = rows.Scan(&f.ID, &f.Name, &f.IsFolder, &f.PermissionType); err != nil {
 			return nil, fmt.Errorf("scanning file: %w", err)
 		}
 		files = append(files, f)
