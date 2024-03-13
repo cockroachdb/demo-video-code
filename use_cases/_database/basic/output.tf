@@ -36,3 +36,16 @@ output "iot_app_url" {
     )
   )
 }
+
+output "iam_app_url" {
+  sensitive = true
+  value = format(
+    "postgres://rob:%s@%s:26257/iam?sslmode=require",
+    random_password.rob.result,
+    replace(
+      cockroach_cluster.demo.regions[1].sql_dns,
+      "/aws-[[:word:]]+-[[:word:]]+-[[:word:]]./",
+      ""
+    )
+  )
+}

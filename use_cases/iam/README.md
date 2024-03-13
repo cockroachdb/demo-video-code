@@ -86,12 +86,12 @@ CREATE TABLE IF NOT EXISTS "file" (
   "content" TEXT NULL,
 
   INDEX (parent_id) STORING ("name", "is_folder")
-);
+) LOCALITY GLOBAL;
 
 CREATE TABLE "users" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username STRING NOT NULL UNIQUE
-);
+) LOCALITY REGIONAL BY ROW;
 
 CREATE TYPE "access_type" AS ENUM ('edit', 'comment', 'read');
 
@@ -101,7 +101,7 @@ CREATE TABLE "permissions" (
   "type" access_type NOT NULL,
 
   PRIMARY KEY ("user_id", "file_id")
-);
+) LOCALITY REGIONAL BY ROW;
 ```
 
 Insert data
@@ -119,31 +119,61 @@ INSERT INTO "file" ("id", "name", "parent_id", "is_folder", "content") VALUES
       ('ef05bad5-2ee0-4b1b-9744-e72ebc87cef8', 'i', 'be2adabd-a4b5-49c2-b4ed-0fbd8310674e', false, 'i content'),
       ('e4cdb6df-f7f3-4211-b0c7-36a4f37770c5', 'j', 'be2adabd-a4b5-49c2-b4ed-0fbd8310674e', false, 'j content');
 
-INSERT INTO "users" ("id", "username") VALUES
-  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'emily'),
-  ('5bb18344-5d5c-4a60-b336-055b364304be', 'ruby'),
-  ('cb2b2d1a-2c66-45a3-ba8a-5da35ef5787b', 'rex');
+INSERT INTO "users" ("id", "username", "crdb_region") VALUES
+  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'alice', 'aws-eu-central-1'),
+  ('5bb18344-5d5c-4a60-b336-055b364304be', 'bob', 'aws-us-east-1'),
+  ('cb2b2d1a-2c66-45a3-ba8a-5da35ef5787b', 'carol', 'aws-ap-southeast-1');
 
-INSERT INTO "permissions" ("user_id", "file_id", "type") VALUES
-  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'a58d1908-1ccd-460c-b7a6-966f8b69bb7f', 'edit'),
-  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'ef05bad5-2ee0-4b1b-9744-e72ebc87cef8', 'read'),
-  ('5bb18344-5d5c-4a60-b336-055b364304be', 'b628456b-03b9-4ed0-91cb-5fbede2a0f9e', 'comment'),
-  ('cb2b2d1a-2c66-45a3-ba8a-5da35ef5787b', 'a35e1ad1-9a65-4802-bfa4-0e5f157ddc3e', 'read')
+INSERT INTO "permissions" ("user_id", "file_id", "type", "crdb_region") VALUES
+  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'a58d1908-1ccd-460c-b7a6-966f8b69bb7f', 'edit', 'aws-eu-central-1'),
+  ('57448a35-5eae-413e-b60f-95c84f7354c5', 'ef05bad5-2ee0-4b1b-9744-e72ebc87cef8', 'read', 'aws-eu-central-1'),
+  ('5bb18344-5d5c-4a60-b336-055b364304be', 'b628456b-03b9-4ed0-91cb-5fbede2a0f9e', 'comment', 'aws-us-east-1'),
+  ('cb2b2d1a-2c66-45a3-ba8a-5da35ef5787b', 'a35e1ad1-9a65-4802-bfa4-0e5f157ddc3e', 'read', 'aws-ap-southeast-1')
 ON CONFLICT DO NOTHING;
 ```
 
-Start application
+Start application (local)
 
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/iam?sslmode=disable" \
-JWT_SECRET="KCaQ+qj96BVgumwgHZf" \
+JWT_SECRET=$JWT_SECRET \
   go run iam/app/main.go
-
 
 (
   cd iam/app/frontend && \
   API_URL="http://localhost:3000" \
-  JWT_SECRET="KCaQ+qj96BVgumwgHZf" \
+  JWT_SECRET=$JWT_SECRET \
+    npm run dev
+)
+```
+
+### Deploy service
+
+``` sh
+fly app create crdb-iam --org crl-devrel
+
+fly secrets set \
+  --app crdb-iam \
+  DATABASE_URL=$(cd _database/basic && terraform output -raw iam_app_url)
+
+fly secrets set \
+  --app crdb-iam \
+  JWT_SECRET=$JWT_SECRET
+
+cp go.* iam/app
+(cd iam/app && fly deploy --ha=false)
+(cd iam/app && fly scale count 3 --region fra,iad,sin --max-per-region 1)
+
+rm iam/app/go.*
+```
+
+Run application (remote)
+
+``` sh
+(
+  cd iam/app/frontend && \
+  API_URL="https://crdb-iam.fly.dev" \
+  JWT_SECRET=$JWT_SECRET \
     npm run dev
 )
 ```
@@ -313,4 +343,25 @@ file_content AS (
 
 SELECT fc.content
 FROM file_content fc;
+```
+
+### Teardown
+
+App
+
+``` sh
+fly app delete crdb-iam -y
+```
+
+Database (required before user can be deleted)
+
+``` sql
+SET sql_safe_updates = false;
+DROP DATABASE iam;
+```
+
+Cluster
+
+``` sh
+(cd _database/basic && terraform destroy --auto-approve)
 ```
