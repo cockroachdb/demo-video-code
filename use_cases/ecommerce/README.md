@@ -234,10 +234,23 @@ INSERT INTO stock (id, market_product_id, quantity_on_hand, quantity_on_order, c
   ('c6a88d62-58cc-412a-9d57-42779d4bf83d', '1d148b4b-9ed7-4049-a084-ff162150bc39', 100, 10, 'aws-eu-central-1');
 ```
 
-Show all regions
+##### Reporting
 
-``` sh
-echo $(cd _database/advanced && terraform output -json ecommerce_app_urls) | jq
+Revenue (all)
+
+``` sql
+SELECT
+  SUM(amount)
+FROM purchase;
+```
+
+Revenue (by market)
+
+``` sql
+SELECT
+  COUNT(*) FILTER(WHERE crdb_region = 'aws-eu-central-1'),
+  SUM(amount) FILTER(WHERE crdb_region = 'aws-eu-central-1')
+FROM purchase;
 ```
 
 ### Teardown
@@ -259,46 +272,4 @@ CockroachDB infra
 
 ``` sh
 (cd _database/advanced && terraform destroy -var-file="ecommerce.tfvars")
-```
-
-### Temp
-
-``` sql
-INSERT INTO basket (customer_id, market_product_id, crdb_region, quantity)
-VALUES ('359a6ed4-8537-473d-a8a7-9b917220c436', 'd41e785d-07c0-4adc-8f95-c26c47d1592f', 'aws-eu-central-1', 1);
-INSERT INTO basket (customer_id, market_product_id, crdb_region, quantity)
-VALUES ('359a6ed4-8537-473d-a8a7-9b917220c436', '1d148b4b-9ed7-4049-a084-ff162150bc39', 'aws-eu-central-1', 1);
-
-SELECT
-  SUM(mp.amount * b.quantity) AS total
-FROM basket b
-JOIN market_product mp ON b.market_product_id = mp.id
-  AND b.crdb_region = mp.crdb_region
-WHERE b.customer_id = '359a6ed4-8537-473d-a8a7-9b917220c436'
-AND b.crdb_region = 'aws-eu-central-1';
-
-SELECT array_agg(market_product_id)
-FROM basket b
-WHERE b.customer_id = '359a6ed4-8537-473d-a8a7-9b917220c436'
-AND b.crdb_region = 'aws-eu-central-1';
-
-UPDATE stock
-SET quantity_on_hand = quantity_on_hand - b.quantity
-FROM (
-  SELECT quantity, market_product_id
-  FROM basket
-  WHERE customer_id = '359a6ed4-8537-473d-a8a7-9b917220c436'
-  AND crdb_region = 'aws-eu-central-1'
-) AS b
-WHERE stock.market_product_id = b.market_product_id
-AND stock.crdb_region = 'aws-eu-central-1';
-
-SELECT
-  json_agg(json_build_object(
-    'product', b.market_product_id,
-    'quantity', b.quantity
-  ))
-FROM basket b
-WHERE b.customer_id = '359a6ed4-8537-473d-a8a7-9b917220c436'
-AND b.crdb_region = 'aws-eu-central-1';
 ```
