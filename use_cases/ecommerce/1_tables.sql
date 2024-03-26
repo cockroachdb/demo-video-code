@@ -55,25 +55,43 @@ CREATE TABLE market_product (
     END
   ) STORED,
 
-  INDEX ("amount")
+  INDEX ("market", "amount") STORING ("currency")
 ) LOCALITY REGIONAL BY ROW;
 
 
 CREATE TABLE stock (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "market_product_id" UUID NOT NULL REFERENCES market_product("id"),
+  "market_product_id" UUID NOT NULL,
   "quantity_on_hand" INT NOT NULL,
-  "quantity_on_order" INT NOT NULL
+  "quantity_on_order" INT NOT NULL,
+
+  FOREIGN KEY ("market_product_id", "crdb_region") REFERENCES market_product ("id", "crdb_region")
 ) LOCALITY REGIONAL BY ROW;
 
 
+-- CREATE TABLE basket (
+--   "market_product_id" UUID NOT NULL,
+--   "customer_id" UUID NOT NULL,
+--   "quantity" INT NOT NULL,
+--   "ts" TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+--   PRIMARY KEY ("market_product_id", "customer_id"),
+--   FOREIGN KEY ("market_product_id", "crdb_region") REFERENCES market_product ("id", "crdb_region"),
+--   FOREIGN KEY ("customer_id", "crdb_region") REFERENCES customer ("id", "crdb_region")
+-- ) WITH (
+--   ttl_expiration_expression = '((ts AT TIME ZONE ''UTC'') + INTERVAL ''10 minute'') AT TIME ZONE ''UTC''',
+--   ttl_job_cron = '* * * * *'
+-- ) LOCALITY REGIONAL BY ROW;
+
 CREATE TABLE basket (
-  "market_product_id" UUID NOT NULL REFERENCES market_product("id"),
-  "customer_id" UUID NOT NULL REFERENCES customer("id"),
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "market_product_id" UUID NOT NULL,
+  "customer_id" UUID NOT NULL,
   "quantity" INT NOT NULL,
   "ts" TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  PRIMARY KEY ("market_product_id", "customer_id")
+  FOREIGN KEY ("market_product_id") REFERENCES market_product ("id"),
+  FOREIGN KEY ("customer_id") REFERENCES customer ("id")
 ) WITH (
   ttl_expiration_expression = '((ts AT TIME ZONE ''UTC'') + INTERVAL ''10 minute'') AT TIME ZONE ''UTC''',
   ttl_job_cron = '* * * * *'
@@ -84,9 +102,11 @@ CREATE TYPE purchase_status AS ENUM ('pending', 'paid', 'dispatched');
 
 CREATE TABLE purchase (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "customer_id" UUID NOT NULL REFERENCES customer("id"),
+  "customer_id" UUID NOT NULL,
   "market_product_ids" UUID[] NOT NULL,
   "amount" DECIMAL NOT NULL,
   "status" purchase_status NOT NULL DEFAULT 'pending',
-  "ts" TIMESTAMPTZ NOT NULL DEFAULT now()
+  "ts" TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  FOREIGN KEY ("customer_id", "crdb_region") REFERENCES customer ("id", "crdb_region")
 ) LOCALITY REGIONAL BY ROW;

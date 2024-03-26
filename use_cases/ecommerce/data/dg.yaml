@@ -8,7 +8,7 @@ inputs:
 tables:
 
   - name: customer
-    count: 100000
+    count: 1000
     unique_columns: [email]
     columns:
       - name: id
@@ -98,7 +98,7 @@ tables:
           match_column: market
   
   - name: basket
-    count: 5000
+    count: 1000
     columns:
       - name: market_product_id
         type: ref

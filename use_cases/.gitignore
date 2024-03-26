@@ -9,9 +9,10 @@
 go.work
 
 # Terraform
-terraform.tfstate
-terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
 .terraform/
+
 
 # Secrets
 .env
@@ -21,3 +22,6 @@ terraform.tfstate.backup
 
 # Generated data
 **/csvs/
+
+# Sensitive stuff
+*.crt

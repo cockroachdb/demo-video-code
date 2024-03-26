@@ -6,12 +6,10 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/brianvoe/gofakeit/v6"
 	crdbpgx "github.com/cockroachdb/cockroach-go/v2/crdb/crdbpgxv5"
-	"github.com/codingconcepts/ring"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/jackc/pgx/v5"
@@ -20,26 +18,31 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const customersPerMarket = 10
-
-var (
-	averageBrowseLatency   = ring.New[time.Duration](100)
-	averageBasketLatency   = ring.New[time.Duration](100)
-	averageCheckoutLatency = ring.New[time.Duration](100)
+const (
+	customersPerMarket = 1
+	browseFrequency    = time.Second * 1
+	basketFrequency    = time.Second * 10
+	checkoutFrequency  = time.Second * 30
 )
 
 func main() {
 	log.SetFlags(0)
 
-	databaseURL, ok := os.LookupEnv("DATABASE_URL")
-	if !ok {
-		log.Fatalf("missing DATABASE_URL env var")
+	databaseURL := mustLoadDatabaseURL()
+
+	databaseCert, ok := os.LookupEnv("DATABASE_CERT")
+	if ok {
+		if err := writeCert(databaseCert); err != nil {
+			log.Fatalf("error writing cert: %v", err)
+		}
+		databaseURL += "&sslrootcert=ca.crt"
 	}
 
 	db, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
+	log.Printf("[host]:    %q", db.Config().ConnConfig.Host)
 
 	timeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -52,23 +55,56 @@ func main() {
 	if err != nil {
 		log.Fatalf("error loading region: %v", err)
 	}
+	log.Printf("[region]:  %q", region)
 
 	markets, err := loadMarkets(db, region)
 	if err != nil {
 		log.Fatalf("error loading markets: %v", err)
 	}
-
-	fmt.Println(markets)
+	log.Printf("[markets]: %q", markets)
 
 	go func() {
-		if err = workers(db, markets); err != nil {
+		if err = workers(db, region, markets); err != nil {
 			log.Fatalf("error in worker: %v", err)
 		}
 	}()
 
-	go printLoop()
-
 	server(db)
+}
+
+func mustLoadDatabaseURL() string {
+	flyRegion, ok := os.LookupEnv("FLY_REGION")
+	if ok {
+		switch flyRegion {
+		case "lhr", "fra":
+			url, ok := os.LookupEnv("DATABASE_URL_EU")
+			if !ok {
+				log.Fatalf("missing DATABASE_URL_EU env var")
+			}
+			return url
+		case "iad":
+			url, ok := os.LookupEnv("DATABASE_URL_US")
+			if !ok {
+				log.Fatalf("missing DATABASE_URL_US env var")
+			}
+			return url
+		case "sin":
+			url, ok := os.LookupEnv("DATABASE_URL_AP")
+			if !ok {
+				log.Fatalf("missing DATABASE_URL_AP env var")
+			}
+			return url
+		default:
+			log.Fatalf("unexpected FLY_REGION: %q", flyRegion)
+		}
+	}
+
+	databaseURL, ok := os.LookupEnv("DATABASE_URL")
+	if !ok {
+		log.Fatalf("missing DATABASE_URL env var")
+	}
+
+	return databaseURL
 }
 
 func server(db *pgxpool.Pool) {
@@ -83,7 +119,7 @@ func server(db *pgxpool.Pool) {
 	log.Fatal(router.Listen(addr))
 }
 
-func workers(db *pgxpool.Pool, markets []string) error {
+func workers(db *pgxpool.Pool, region string, markets []string) error {
 	var eg errgroup.Group
 	for _, m := range markets {
 		m := m
@@ -92,7 +128,7 @@ func workers(db *pgxpool.Pool, markets []string) error {
 			eg.Go(func() error {
 				// Stagger the workers.
 				time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
-				return worker(db, m)
+				return worker(db, region, m)
 			})
 		}
 	}
@@ -107,7 +143,7 @@ type marketProduct struct {
 	Currency string  `json:"currency"`
 }
 
-func worker(db *pgxpool.Pool, market string) error {
+func worker(db *pgxpool.Pool, region, market string) error {
 	customerID, err := createCustomer(db)
 	if err != nil {
 		return fmt.Errorf("creating customer: %w", err)
@@ -115,39 +151,32 @@ func worker(db *pgxpool.Pool, market string) error {
 
 	log.Printf("customer: %s, market: %s", customerID, market)
 
-	browseTick := time.NewTicker(time.Second * 1).C
-	basketTick := time.NewTicker(time.Second * 10).C
-	checkoutTick := time.NewTicker(time.Second * 30).C
+	browseTick := time.NewTicker(browseFrequency).C
+	basketTick := time.NewTicker(basketFrequency).C
+	checkoutTick := time.NewTicker(checkoutFrequency).C
 
 	var products []marketProduct
 
 	for {
 		select {
 		case <-browseTick:
-			start := time.Now()
-
-			if products, err = browse(db, market); err != nil {
-				return fmt.Errorf("browsing products (market = %q): %w", market, err)
+			if products, err = browse(db, region, market); err != nil {
+				log.Printf("browsing products (market = %q): %v", market, err)
+				continue
 			}
-			averageBrowseLatency.Add(time.Since(start))
 
 		case <-basketTick:
-			start := time.Now()
-
 			p := lo.Sample(products)
-			if err = basket(db, customerID, p.ID, 1); err != nil {
-				return fmt.Errorf("adding product to basket (product_market = %q): %w", p.ID, err)
+			if err = basket(db, customerID, p.ID, region, 1); err != nil {
+				log.Printf("adding product to basket (product_market = %q): %v", p.ID, err)
+				continue
 			}
-			averageBasketLatency.Add(time.Since(start))
 
 		case <-checkoutTick:
-			start := time.Now()
-
-			if err = checkout(db, customerID); err != nil {
-				return fmt.Errorf("checking out: %w", err)
+			if err = checkout(db, customerID, region); err != nil {
+				log.Printf("checking out: %v", err)
+				continue
 			}
-			averageCheckoutLatency.Add(time.Since(start))
-
 		}
 	}
 }
@@ -165,23 +194,31 @@ func createCustomer(db *pgxpool.Pool) (string, error) {
 	return id, nil
 }
 
-func browse(db *pgxpool.Pool, market string) ([]marketProduct, error) {
+func browse(db *pgxpool.Pool, region, market string) ([]marketProduct, error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("[* BROWSE] %dms", time.Since(start).Milliseconds())
+	}()
+
 	const stmt = `SELECT
 									mp.id, p.name, mp.amount, mp.currency
 								FROM market_product mp
 								JOIN product p ON mp.product_id = p.id
-								WHERE mp.market = $1
-								AND mp.amount BETWEEN $2 AND $3`
+									AS OF SYSTEM TIME follower_read_timestamp()
+								WHERE mp.crdb_region = $1
+								AND mp.market = $2
+								AND mp.amount BETWEEN $3 AND $4
+								LIMIT 20`
 
 	min := rand.Intn(255 - 10)
 	max := min + 10
 
-	rows, err := db.Query(context.Background(), stmt, market, min, max)
+	var products []marketProduct
+	rows, err := db.Query(context.Background(), stmt, region, market, min, max)
 	if err != nil {
 		return nil, fmt.Errorf("querying products: %w", err)
 	}
 
-	var products []marketProduct
 	for rows.Next() {
 		var p marketProduct
 		if err = rows.Scan(&p.ID, &p.Name, &p.Amount, &p.Currency); err != nil {
@@ -193,44 +230,60 @@ func browse(db *pgxpool.Pool, market string) ([]marketProduct, error) {
 	return products, nil
 }
 
-func basket(db *pgxpool.Pool, customerID, productID string, quantity uint) error {
-	const stmt = "SELECT add_to_basket($1, $2, $3)"
+func basket(db *pgxpool.Pool, customerID, productID, region string, quantity uint) error {
+	start := time.Now()
+	defer func() {
+		log.Printf("[* * BASKET] %dms", time.Since(start).Milliseconds())
+	}()
 
-	if _, err := db.Exec(context.Background(), stmt, customerID, productID, quantity); err != nil {
+	const stmt = `SELECT add_to_basket($1, $2, $3, $4)`
+
+	if _, err := db.Exec(context.Background(), stmt, customerID, productID, region, quantity); err != nil {
 		return fmt.Errorf("adding product to basket: %w", err)
 	}
 
 	return nil
 }
 
-func checkout(db *pgxpool.Pool, customerID string) error {
+func checkout(db *pgxpool.Pool, customerID, region string) error {
+	start := time.Now()
+	defer func() {
+		log.Printf("[* * * CHECKOUT] %dms", time.Since(start).Milliseconds())
+	}()
+
 	var purchaseID string
 
 	err := crdbpgx.ExecuteTx(context.Background(), db, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		// One last stock check before checking out.
-		stmt := `CALL can_checkout($1)`
-		if _, err := tx.Exec(context.Background(), stmt, customerID); err != nil {
+		stmt := `CALL can_checkout($1, $2)`
+		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
 			return err
 		}
 
 		// Create order.
-		stmt = `INSERT INTO purchase ("customer_id", "market_product_ids", "amount") VALUES
-				($1, basket_products($1), basket_total($1)) RETURNING id`
+		stmt = `INSERT INTO purchase ("customer_id", "market_product_ids", "amount", "crdb_region")
+						VALUES
+							(
+								$1,
+								basket_products($1, $2),
+								basket_total($1, $2),
+								$2
+							) RETURNING id`
 
-		row := tx.QueryRow(context.Background(), stmt, customerID)
+		row := tx.QueryRow(context.Background(), stmt, customerID, region)
 		if err := row.Scan(&purchaseID); err != nil {
 			return err
 		}
 
 		// Update stock.
-		stmt = `CALL remove_purchase_stock($1);`
-		if _, err := tx.Exec(context.Background(), stmt, customerID); err != nil {
+		stmt = `CALL remove_purchase_stock($1, $2);`
+		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
 			return err
 		}
 
 		// Delete customer basket.
-		stmt = `DELETE FROM basket WHERE customer_id = $1`
-		if _, err := tx.Exec(context.Background(), stmt, customerID); err != nil {
+		stmt = `DELETE FROM basket WHERE customer_id = $1 AND crdb_region = $2`
+		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
 			return err
 		}
 
@@ -243,36 +296,6 @@ func checkout(db *pgxpool.Pool, customerID string) error {
 	}
 
 	return nil
-}
-
-func printLoop() {
-	browseTick := time.NewTicker(time.Second * 2).C
-	basketTick := time.NewTicker(time.Second * 20).C
-	checkoutTick := time.NewTicker(time.Second * 60).C
-
-	for {
-		select {
-		case <-browseTick:
-			printAverageLatencies(averageBrowseLatency, "browse")
-
-		case <-basketTick:
-			printAverageLatencies(averageBasketLatency, "basket")
-
-		case <-checkoutTick:
-			printAverageLatencies(averageCheckoutLatency, "checkout")
-		}
-	}
-}
-
-func printAverageLatencies(r *ring.Ring[time.Duration], name string) {
-	latencies := r.Slice()
-	sum := lo.Sum(latencies)
-	log.Printf(
-		"[%s] avg latency: %dms (samples: %d)",
-		name,
-		sum.Milliseconds()/int64(len(latencies)),
-		len(latencies),
-	)
 }
 
 func loadRegion(db *pgxpool.Pool) (string, error) {
@@ -313,23 +336,63 @@ func loadMarkets(db *pgxpool.Pool, region string) ([]string, error) {
 	return markets, nil
 }
 
-func rollingAverage(period int) func(time.Duration) time.Duration {
-	var i int
-	var sum time.Duration
-	var storage = make([]time.Duration, 0, period)
-	var mu sync.Mutex
-
-	return func(input time.Duration) time.Duration {
-		mu.Lock()
-		defer mu.Unlock()
-
-		if len(storage) < period {
-			sum += input
-			storage = append(storage, input)
-		}
-
-		sum += input - storage[i]
-		storage[i], i = input, (i+1)%period
-		return sum / time.Duration(len(storage))
+func writeCert(content string) error {
+	file, err := os.Create("ca.crt")
+	if err != nil {
+		return fmt.Errorf("creating file: %w", err)
 	}
+	defer file.Close()
+
+	if _, err = file.WriteString(content); err != nil {
+		return fmt.Errorf("writing file: %w", err)
+	}
+
+	log.Println("wrote certificate")
+	return nil
+}
+
+// RandomTicker represents a ticker that emits ticks at random intervals
+// within a specified range.
+type RandomTicker struct {
+	C        chan time.Time
+	min, max time.Duration
+	done     chan struct{}
+}
+
+// NewRandomTicker creates a new RandomFreqTicker with specified minimum and maximum durations.
+func NewRandomTicker(min, max time.Duration) *RandomTicker {
+	rft := &RandomTicker{
+		min:  min,
+		max:  max,
+		C:    make(chan time.Time, 1),
+		done: make(chan struct{}, 1),
+	}
+	go rft.startTicking()
+	return rft
+}
+
+// startTicking starts the internal goroutine that emits ticks.
+func (rft *RandomTicker) startTicking() {
+	for {
+		select {
+		case <-rft.done:
+			return
+		case <-time.After(rft.randomDuration()):
+			rft.C <- time.Now()
+		}
+	}
+}
+
+// randomDuration generates a random duration within the ticker's range.
+func (rft *RandomTicker) randomDuration() time.Duration {
+	delta := rft.max - rft.min
+	if delta <= 0 {
+		return rft.min
+	}
+	return rft.min + time.Duration(rand.Int63n(int64(delta)))
+}
+
+// Stop stops the ticker, closing the tick channel.
+func (rft *RandomTicker) Stop() {
+	close(rft.done)
 }

@@ -33,14 +33,9 @@ resource "cockroach_sql_user" "gcp" {
   password   = random_password.rob.result
 }
 
-# IP AllowList for current network (saves having to configure it in the console).
-data "http" "home" {
-  url = "https://ipv4.icanhazip.com"
-}
-
 resource "cockroach_allow_list" "demo" {
-  cidr_ip    = chomp(data.http.home.response_body)
-  cidr_mask  = 32
+  cidr_ip    = "0.0.0.0"
+  cidr_mask  = 0
   cluster_id = cockroach_cluster.demo.id
   sql        = true
   ui         = false

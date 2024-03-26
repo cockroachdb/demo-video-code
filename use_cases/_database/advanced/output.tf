@@ -27,3 +27,43 @@ output "iot_app_url" {
     )
   )
 }
+
+output "ecommerce_app_url" {
+  sensitive = true
+  value = format(
+    "postgres://rob:%s@%s:26257/store?sslmode=require",
+    random_password.rob.result,
+    replace(
+      cockroach_cluster.demo.regions[0].sql_dns,
+      "/aws-[[:word:]]+-[[:word:]]+-[[:word:]]./",
+      ""
+    )
+  )
+}
+
+output "ecommerce_app_url_eu" {
+  sensitive = true
+  value = format(
+    "postgres://rob:%s@%s:26257/store?sslmode=require",
+    random_password.rob.result,
+    cockroach_cluster.demo.regions[0].sql_dns
+  )
+}
+
+output "ecommerce_app_url_us" {
+  sensitive = true
+  value = format(
+    "postgres://rob:%s@%s:26257/store?sslmode=require",
+    random_password.rob.result,
+    cockroach_cluster.demo.regions[1].sql_dns
+  )
+}
+
+output "ecommerce_app_url_ap" {
+  sensitive = true
+  value = format(
+    "postgres://rob:%s@%s:26257/store?sslmode=require",
+    random_password.rob.result,
+    cockroach_cluster.demo.regions[2].sql_dns
+  )
+}
