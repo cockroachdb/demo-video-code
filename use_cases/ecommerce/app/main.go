@@ -30,14 +30,6 @@ func main() {
 
 	databaseURL := mustLoadDatabaseURL()
 
-	databaseCert, ok := os.LookupEnv("DATABASE_CERT")
-	if ok {
-		if err := writeCert(databaseCert); err != nil {
-			log.Fatalf("error writing cert: %v", err)
-		}
-		databaseURL += "&sslrootcert=ca.crt"
-	}
-
 	db, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)

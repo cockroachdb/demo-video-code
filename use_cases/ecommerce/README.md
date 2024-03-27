@@ -62,35 +62,33 @@ cockroach demo \
 Create cluster (Cloud)
 
 ``` sh
-(cd _database/advanced && terraform init)
-(cd _database/advanced && terraform apply -var-file="ecommerce.tfvars")
+(cd _database/basic && terraform init)
+(cd _database/basic && terraform apply -var-file="ecommerce.tfvars")
 ```
 
 Apply env vars (all terminals)
 
 ``` sh
-export CLUSTER_ID=$(cd _database/advanced && terraform output -raw cluster_id)
-export DATABASE_CERT=$(curl -s "https://cockroachlabs.cloud/clusters/$CLUSTER_ID/cert")
-export DATABASE_URL_EU=$(cd _database/advanced && terraform output -raw ecommerce_app_url_eu)
-export DATABASE_URL_US=$(cd _database/advanced && terraform output -raw ecommerce_app_url_us)
-export DATABASE_URL_AP=$(cd _database/advanced && terraform output -raw ecommerce_app_url_ap)
+export SHELL_URL=$(cd _database/basic && terraform output -raw shell_url)
+export DATABASE_URL=$(cd _database/basic && terraform output -raw ecommerce_app_url)
+export DATABASE_URL_EU=$(cd _database/basic && terraform output -raw ecommerce_app_url_eu)
+export DATABASE_URL_US=$(cd _database/basic && terraform output -raw ecommerce_app_url_us)
+export DATABASE_URL_AP=$(cd _database/basic && terraform output -raw ecommerce_app_url_ap)
 ```
 
 Connect to cluster
 
 ``` sh
-curl --create-dirs -o $HOME/Library/CockroachCloud/certs/$ORG_ID/crdb-use-cases-ca.crt "https://cockroachlabs.cloud/clusters/$CLUSTER_ID/cert"
-
-cockroach sql --url "$(cd _database/advanced && terraform output -raw shell_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/$ORG_ID/crdb-use-cases-ca.crt"
+cockroach sql --url $SHELL_URL
 ```
 
 Create database objects (remote)
 
 ``` sh
-cockroach sql --url "$(cd _database/advanced && terraform output -raw shell_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/$ORG_ID/crdb-use-cases-ca.crt" \
+cockroach sql --url $SHELL_URL \
   -f ecommerce/1_tables.sql
 
-cockroach sql --url "$(cd _database/advanced && terraform output -raw ecommerce_app_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/$ORG_ID/crdb-use-cases-ca.crt" \
+cockroach sql --url $DATABASE_URL \
   -f ecommerce/2_functions.sql
 ```
 
@@ -112,14 +110,12 @@ python3 -m http.server -d ecommerce/data/csvs
 ngrok http 8000
 ```
 
-Import data (remote)
-
 ``` sql
 IMPORT INTO customer (
 	id, email, crdb_region
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/customer.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/customer.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 
@@ -127,7 +123,7 @@ IMPORT INTO product (
 	id, name
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/product.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/product.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 
@@ -135,7 +131,7 @@ IMPORT INTO market_product (
 	product_id, market, id, amount, currency
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/market_product.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/market_product.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 
@@ -143,7 +139,7 @@ IMPORT INTO stock (
 	market_product_id, quantity_on_hand, quantity_on_order, crdb_region
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/stock.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/stock.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 
@@ -151,7 +147,7 @@ IMPORT INTO basket (
 	market_product_id, customer_id, quantity, crdb_region
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/basket.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/basket.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 
@@ -159,7 +155,7 @@ IMPORT INTO region_market (
 	market, region
 )
 CSV DATA (
-    'https://0a78-2a02-c7c-ce0c-a400-6827-b7bb-16fd-fbfd.ngrok-free.app/region_market.csv'
+    'https://73b3-90-251-250-245.ngrok-free.app/region_market.csv'
 )
 WITH skip='1', nullif = '', allow_quoted_null;
 ```
@@ -173,19 +169,15 @@ fly app create crdb-ecommerce --org crl-devrel
 
 fly secrets set \
   --app crdb-ecommerce \
-  DATABASE_URL_EU=$(cd _database/advanced && terraform output -raw ecommerce_app_url_eu)
+  DATABASE_URL_EU=$DATABASE_URL_EU
 
 fly secrets set \
   --app crdb-ecommerce \
-  DATABASE_URL_US=$(cd _database/advanced && terraform output -raw ecommerce_app_url_us)
+  DATABASE_URL_US=$DATABASE_URL_US
 
 fly secrets set \
   --app crdb-ecommerce \
-  DATABASE_URL_AP=$(cd _database/advanced && terraform output -raw ecommerce_app_url_ap)
-
-fly secrets set \
-  --app crdb-ecommerce \
-  DATABASE_CERT=$DATABASE_CERT
+  DATABASE_URL_AP=$DATABASE_URL_AP
 
 cp go.* ecommerce/app
 (cd ecommerce/app && fly deploy --ha=false)
@@ -207,8 +199,7 @@ fly logs --app crdb-ecommerce -r sin
 
 ``` sh
 FLY_REGION="fra" \
-DATABASE_CERT=$DATABASE_CERT \
-DATABASE_URL=$(cd _database/advanced && terraform output -raw ecommerce_app_url) \
+DATABASE_URL_EU=$DATABASE_URL_EU \
 REGION="aws-eu-central-1" \
   go run ecommerce/app/main.go
 ```
@@ -241,7 +232,7 @@ Revenue (all)
 ``` sql
 SELECT
   SUM(amount)
-FROM purchase;
+FROM purchase AS OF SYSTEM TIME follower_read_timestamp();
 ```
 
 Revenue (by market)
@@ -250,7 +241,7 @@ Revenue (by market)
 SELECT
   COUNT(*) FILTER(WHERE crdb_region = 'aws-eu-central-1'),
   SUM(amount) FILTER(WHERE crdb_region = 'aws-eu-central-1')
-FROM purchase;
+FROM purchase AS OF SYSTEM TIME follower_read_timestamp();
 ```
 
 ### Teardown
@@ -264,6 +255,7 @@ fly app delete crdb-ecommerce -y
 Database
 
 ``` sql
+USE defaultdb;
 SET sql_safe_updates = false;
 DROP DATABASE store;
 ```
@@ -271,5 +263,5 @@ DROP DATABASE store;
 CockroachDB infra
 
 ``` sh
-(cd _database/advanced && terraform destroy -var-file="ecommerce.tfvars")
+(cd _database/basic && terraform destroy -var-file="ecommerce.tfvars")
 ```
