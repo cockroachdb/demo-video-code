@@ -152,12 +152,14 @@ func worker(db *pgxpool.Pool, region, market string) error {
 	for {
 		select {
 		case <-browseTick:
+			stagger()
 			if products, err = browse(db, region, market); err != nil {
 				log.Printf("browsing products (market = %q): %v", market, err)
 				continue
 			}
 
 		case <-basketTick:
+			stagger()
 			p := lo.Sample(products)
 			if err = basket(db, customerID, p.ID, region, 1); err != nil {
 				log.Printf("adding product to basket (product_market = %q): %v", p.ID, err)
@@ -165,6 +167,7 @@ func worker(db *pgxpool.Pool, region, market string) error {
 			}
 
 		case <-checkoutTick:
+			stagger()
 			if err = checkout(db, customerID, region); err != nil {
 				log.Printf("checking out: %v", err)
 				continue
@@ -243,39 +246,12 @@ func checkout(db *pgxpool.Pool, customerID, region string) error {
 		log.Printf("[* * * CHECKOUT] %dms", time.Since(start).Milliseconds())
 	}()
 
-	var purchaseID string
-
 	err := crdbpgx.ExecuteTx(context.Background(), db, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		// One last stock check before checking out.
-		stmt := `CALL can_checkout($1, $2)`
-		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
-			return err
-		}
-
-		// Create order.
-		stmt = `INSERT INTO purchase ("customer_id", "market_product_ids", "amount", "crdb_region")
-						VALUES
-							(
-								$1,
-								basket_products($1, $2),
-								basket_total($1, $2),
-								$2
-							) RETURNING id`
-
+		stmt := `SELECT checkout($1, $2)`
 		row := tx.QueryRow(context.Background(), stmt, customerID, region)
+
+		var purchaseID string
 		if err := row.Scan(&purchaseID); err != nil {
-			return err
-		}
-
-		// Update stock.
-		stmt = `CALL remove_purchase_stock($1, $2);`
-		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
-			return err
-		}
-
-		// Delete customer basket.
-		stmt = `DELETE FROM basket WHERE customer_id = $1 AND crdb_region = $2`
-		if _, err := tx.Exec(context.Background(), stmt, customerID, region); err != nil {
 			return err
 		}
 
@@ -328,63 +304,6 @@ func loadMarkets(db *pgxpool.Pool, region string) ([]string, error) {
 	return markets, nil
 }
 
-func writeCert(content string) error {
-	file, err := os.Create("ca.crt")
-	if err != nil {
-		return fmt.Errorf("creating file: %w", err)
-	}
-	defer file.Close()
-
-	if _, err = file.WriteString(content); err != nil {
-		return fmt.Errorf("writing file: %w", err)
-	}
-
-	log.Println("wrote certificate")
-	return nil
-}
-
-// RandomTicker represents a ticker that emits ticks at random intervals
-// within a specified range.
-type RandomTicker struct {
-	C        chan time.Time
-	min, max time.Duration
-	done     chan struct{}
-}
-
-// NewRandomTicker creates a new RandomFreqTicker with specified minimum and maximum durations.
-func NewRandomTicker(min, max time.Duration) *RandomTicker {
-	rft := &RandomTicker{
-		min:  min,
-		max:  max,
-		C:    make(chan time.Time, 1),
-		done: make(chan struct{}, 1),
-	}
-	go rft.startTicking()
-	return rft
-}
-
-// startTicking starts the internal goroutine that emits ticks.
-func (rft *RandomTicker) startTicking() {
-	for {
-		select {
-		case <-rft.done:
-			return
-		case <-time.After(rft.randomDuration()):
-			rft.C <- time.Now()
-		}
-	}
-}
-
-// randomDuration generates a random duration within the ticker's range.
-func (rft *RandomTicker) randomDuration() time.Duration {
-	delta := rft.max - rft.min
-	if delta <= 0 {
-		return rft.min
-	}
-	return rft.min + time.Duration(rand.Int63n(int64(delta)))
-}
-
-// Stop stops the ticker, closing the tick channel.
-func (rft *RandomTicker) Stop() {
-	close(rft.done)
+func stagger() {
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(250)))
 }

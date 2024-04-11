@@ -76,11 +76,11 @@ tables:
       - name: quantity_on_hand
         type: gen
         processor:
-          value: ${uint8}
+          value: 1000
       - name: quantity_on_order
         type: gen
         processor:
-          value: ${uint8}
+          value: 100
       - name: market
         type: match
         suppress: true

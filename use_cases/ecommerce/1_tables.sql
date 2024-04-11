@@ -31,14 +31,6 @@ CREATE TABLE product (
 ) LOCALITY GLOBAL;
 
 
-CREATE TABLE region_market (
-  "region" STRING NOT NULL,
-  "market" STRING NOT NULL,
-
-  PRIMARY KEY ("region", "market")
-) LOCALITY GLOBAL;
-
-
 CREATE TABLE market_product (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "product_id" UUID NOT NULL REFERENCES product("id"),
@@ -95,3 +87,11 @@ CREATE TABLE purchase (
 
   FOREIGN KEY ("customer_id", "crdb_region") REFERENCES customer ("id", "crdb_region")
 ) LOCALITY REGIONAL BY ROW;
+
+
+CREATE TABLE region_market (
+  "region" STRING NOT NULL,
+  "market" STRING NOT NULL,
+
+  PRIMARY KEY ("region", "market")
+) LOCALITY GLOBAL;
