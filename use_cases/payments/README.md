@@ -1,3 +1,7 @@
+### Resources
+
+* https://www.linkedin.com/pulse/payments-architecture-understanding-process-pedro-gracia-bernal
+
 ### Demo Areas
 
 * Advanced Tier (CMEKs and PCI-compliance)
@@ -70,6 +74,19 @@ cockroach demo \
   --insecure
 ```
 
+Kafka (local)
+
+``` sh
+docker run -d \
+  --name redpanda \
+  -p 9092:9092 -p 29092:29092 \
+  docker.redpanda.com/redpandadata/redpanda:v22.2.2 \
+    start \
+      --smp 1 \
+      --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092 \
+      --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+```
+
 Create cluster (Cloud)
 
 ``` sh
@@ -113,6 +130,12 @@ aws ec2 create-vpc-endpoint \
   --vpc-endpoint-type Interface \
   --security-group-ids {SECURITY_GROUP_ID1} {SECURITY_GROUP_ID2} \
   --service-name com.amazonaws.vpce.eu-central-1.vpce-svc-034c9a208c8e6f4a6
+```
+
+Create topics
+
+``` sh
+kafkactl create topic fraud_check
 ```
 
 Create database
@@ -185,6 +208,16 @@ CREATE FUNCTION decrypt_card(order_id UUID, enc_key STRING) RETURNS STRING LANGU
   WHERE o.id = order_id
   AND cd.is_default;
 $$;
+
+CREATE CHANGEFEED INTO 'kafka://localhost:9092?topic_name=fraud_check'
+WITH kafka_sink_config = '{"Flush": {"MaxMessages": 1, "Frequency": "100ms"}, "RequiredAcks": "ONE"}'
+AS
+  SELECT
+    "id",
+    "amount"
+  FROM orders
+  WHERE "payment_reference" IS NOT NULL
+  AND "status" = 'paid';
 ```
 
 > I won't be implementing all of the necessary components for PCI-compliance
@@ -221,15 +254,26 @@ curl "https://cockroachlabs.cloud/api/v1/clusters/$CLUSTER_ID/networking/egress-
 
 ### Demo (local)
 
-Run services
+Run processor service
 
 ``` sh
 DATABASE_URL="postgres://root@localhost:26257/payment?sslmode=disable" \
   go run payments/app/processor/processor.go
+```
 
+Run gateway service
+
+``` sh
 DATABASE_URL="postgres://root@localhost:26257/payment?sslmode=disable" \
 ENCRYPTION_KEY="l(2nP1}{2m,wioe211})" \
   go run payments/app/gateway/gateway.go
+```
+
+Run fraud detection service
+
+``` sh
+KAFKA_URL="localhost:9092" \
+  go run payments/app/fraud/fraud.go
 ```
 
 ### Debugging statements
@@ -242,12 +286,23 @@ INSERT INTO users ("id", "email") VALUES
 
 INSERT INTO orders ("id", "user_id", "amount", "status") VALUES
   ('1e1ff8f6-3644-4f20-8992-7e95d0dd23fe', 'aac751f6-12ce-441f-a430-430b67e102fb', (100, 'USD'), 'pending');
+
+INSERT INTO orders ("id", "user_id", "amount", "status") VALUES
+  ('2385355b-694a-4e9b-b321-e02ca7d4e409', 'aac751f6-12ce-441f-a430-430b67e102fb', (11000, 'USD'), 'pending');
+
+-- Transnistrian Ruble (small transaction).
+INSERT INTO orders ("id", "user_id", "amount", "status") VALUES
+  ('3be392ca-9350-4386-a0f6-20bc7d5bd136', 'aac751f6-12ce-441f-a430-430b67e102fb', (100, 'PRB'), 'pending');
+
+-- Transnistrian Ruble (large transaction).
+INSERT INTO orders ("id", "user_id", "amount", "status") VALUES
+  ('4e50368a-9e5e-433d-af12-397c2f4ae80e', 'aac751f6-12ce-441f-a430-430b67e102fb', (11000, 'PRB'), 'pending');
 ```
 
 Add cards for the user
 
 ``` sh
-curl -X POST "http://localhost:3000/users/aac751f6-12ce-441f-a430-430b67e102fb/cards" \
+curl -s -X POST "http://localhost:3000/users/aac751f6-12ce-441f-a430-430b67e102fb/cards" \
   -H 'Content-Type: application/json' \
   -d '{
     "card_number": "4111 1111 1111 1111",
@@ -255,7 +310,7 @@ curl -X POST "http://localhost:3000/users/aac751f6-12ce-441f-a430-430b67e102fb/c
     "is_default": false
   }'
 
-curl -X POST "http://localhost:3000/users/aac751f6-12ce-441f-a430-430b67e102fb/cards" \
+curl -s -X POST "http://localhost:3000/users/aac751f6-12ce-441f-a430-430b67e102fb/cards" \
   -H 'Content-Type: application/json' \
   -d '{
     "card_number": "4222 2222 2222 2222",
@@ -297,6 +352,12 @@ Make payment
 
 ``` sh
 curl -X POST "http://localhost:3000/orders/1e1ff8f6-3644-4f20-8992-7e95d0dd23fe/checkout"
+
+curl -X POST "http://localhost:3000/orders/2385355b-694a-4e9b-b321-e02ca7d4e409/checkout"
+
+curl -X POST "http://localhost:3000/orders/3be392ca-9350-4386-a0f6-20bc7d5bd136/checkout"
+
+curl -X POST "http://localhost:3000/orders/4e50368a-9e5e-433d-af12-397c2f4ae80e/checkout"
 ```
 
 Fetch order
