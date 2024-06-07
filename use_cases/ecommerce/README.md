@@ -62,9 +62,9 @@ cockroach demo \
 Create cluster (Cloud - Terraform)
 
 ``` sh
-(cd _database/basic && terraform init)
-(cd _database/basic && terraform apply -var-file="ecommerce.tfvars")
+(cd _database/basic && terraform apply -var-file="ecommerce.tfvars" --auto-approve)
 
+# Export to all terminals.
 export SHELL_URL=$(cd _database/basic && terraform output -raw shell_url)
 export DATABASE_URL=$(cd _database/basic && terraform output -raw ecommerce_app_url)
 export DATABASE_URL_EU=$(cd _database/basic && terraform output -raw ecommerce_app_url_eu)
@@ -72,101 +72,22 @@ export DATABASE_URL_US=$(cd _database/basic && terraform output -raw ecommerce_a
 export DATABASE_URL_AP=$(cd _database/basic && terraform output -raw ecommerce_app_url_ap)
 ```
 
-Create cluster (Cloud - UI)
-
-``` sh
-export SHELL_URL="postgresql://developer:REDACTED@crdb-ecommerce-1452.j77.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"
-export DATABASE_URL="postgresql://developer:REDACTED@crdb-ecommerce-1452.j77.cockroachlabs.cloud:26257/store?sslmode=verify-full"
-export DATABASE_URL_EU="postgresql://developer:REDACTED@crdb-ecommerce-1452.j77.aws-eu-central-1.cockroachlabs.cloud:26257/store?sslmode=verify-full"
-export DATABASE_URL_US="postgresql://developer:REDACTED@crdb-ecommerce-1452.j77.aws-us-east-1.cockroachlabs.cloud:26257/store?sslmode=verify-full"
-export DATABASE_URL_AP="postgresql://developer:REDACTED@crdb-ecommerce-1452.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/store?sslmode=verify-full"
-```
-
-Connect to cluster
-
-``` sh
-cockroach sql --url $SHELL_URL
-```
-
 Create database objects (remote)
 
 ``` sh
 cockroach sql --url $SHELL_URL \
+  -f ecommerce/0_database.sql
+
+cockroach sql --url $DATABASE_URL_EU \
   -f ecommerce/1_tables.sql
 
-cockroach sql --url $DATABASE_URL \
+cockroach sql --url $DATABASE_URL_EU \
   -f ecommerce/2_functions.sql
-```
 
-Create database objects (local)
+cockroach sql --url $DATABASE_URL_EU \
+  -f ecommerce/3_data.sql
 
-``` sh
-cockroach sql --url "postgres://root@localhost:26257/?sslmode=disable" \
-  -f ecommerce/1_tables.sql
-
-cockroach sql --url "postgres://root@localhost:26257/store?sslmode=disable" \
-  -f ecommerce/2_functions.sql
-```
-
-Generate data
-
-``` sh
-dg -c ecommerce/data/dg.yaml -o ecommerce/data/csvs
-python3 -m http.server -d ecommerce/data/csvs
-
-ngrok http 8000
-```
-
-``` sql
-USE store;
-
-IMPORT INTO customer (
-	id, email, crdb_region
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/customer.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
-
-IMPORT INTO product (
-	id, name
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/product.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
-
-IMPORT INTO market_product (
-	product_id, market, id, amount, currency
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/market_product.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
-
-IMPORT INTO stock (
-	market_product_id, quantity_on_hand, quantity_on_order, crdb_region
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/stock.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
-
-IMPORT INTO basket (
-	market_product_id, customer_id, quantity, crdb_region
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/basket.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
-
-IMPORT INTO region_market (
-	market, region
-)
-CSV DATA (
-    'https://8ff9-90-251-250-245.ngrok-free.app/region_market.csv'
-)
-WITH skip='1', nullif = '', allow_quoted_null;
+cockroach sql --url $DATABASE_URL_EU
 ```
 
 ### Deploy service
@@ -194,6 +115,8 @@ cp go.* ecommerce/app
 rm ecommerce/app/go.*
 ```
 
+**Wait for a bit to allow everything to settle**
+
 ### View logs
 
 ``` sh
@@ -201,6 +124,16 @@ fly logs --app crdb-ecommerce -r fra
 fly logs --app crdb-ecommerce -r iad
 fly logs --app crdb-ecommerce -r sin
 ```
+
+Mention that checkouts are heavy operations that involve:
+
+* Check that customer's basket has items in it
+* One last stock check against the stock table, driven from the customer's basket
+* Aggregate basket products
+* Aggregate basket total
+* Insert purchase
+* Remove stock from stock table
+* Clear customer's basket
 
 ### Debug statements
 
@@ -232,17 +165,19 @@ INSERT INTO stock (id, market_product_id, quantity_on_hand, quantity_on_order, c
   ('9d909435-e67f-4ccb-bcb7-45bc3574712f', 'd41e785d-07c0-4adc-8f95-c26c47d1592f', 100, 10, 'aws-eu-central-1');
 INSERT INTO stock (id, market_product_id, quantity_on_hand, quantity_on_order, crdb_region) VALUES
   ('c6a88d62-58cc-412a-9d57-42779d4bf83d', '1d148b4b-9ed7-4049-a084-ff162150bc39', 100, 10, 'aws-eu-central-1');
+```
 
+##### Queries
 
+``` sql
 SELECT
   mp.id, p.name, mp.amount, mp.currency
 FROM market_product mp
 JOIN product p ON mp.product_id = p.id
-  AS OF SYSTEM TIME follower_read_timestamp()
-WHERE mp.crdb_region = 'aws-eu-central-1'
+WHERE mp.crdb_region = 'gcp-europe-west1'
 AND mp.market = 'uk'
 AND mp.amount BETWEEN 100 AND 200
-LIMIT 20;
+LIMIT 1;
 ```
 
 ##### Reporting
@@ -259,8 +194,8 @@ Revenue (by market)
 
 ``` sql
 SELECT
-  COUNT(*) FILTER(WHERE crdb_region = 'aws-eu-central-1'),
-  SUM(amount) FILTER(WHERE crdb_region = 'aws-eu-central-1')
+  COUNT(*) FILTER(WHERE crdb_region = 'gcp-europe-west1'),
+  SUM(amount) FILTER(WHERE crdb_region = 'gcp-europe-west1')
 FROM purchase AS OF SYSTEM TIME follower_read_timestamp();
 ```
 
@@ -283,5 +218,5 @@ DROP DATABASE store;
 CockroachDB infra
 
 ``` sh
-(cd _database/basic && terraform destroy -var-file="ecommerce.tfvars")
+(cd _database/basic && terraform destroy -var-file="ecommerce.tfvars" --auto-approve)
 ```

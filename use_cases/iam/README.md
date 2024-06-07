@@ -25,7 +25,9 @@
 
 ### Steps
 
-Apply API key
+**2 terminal windows**
+
+Apply API key in all windows
 
 ``` sh
 source .env
@@ -45,7 +47,7 @@ Create cluster (Cloud)
 
 ``` sh
 (cd _database/basic && terraform init)
-(cd _database/basic && terraform apply --auto-approve)
+(cd _database/basic && terraform apply --var-file iam.tfvars --auto-approve)
 ```
 
 Connect to cluster
@@ -363,5 +365,5 @@ DROP DATABASE iam;
 Cluster
 
 ``` sh
-(cd _database/basic && terraform destroy --auto-approve)
+(cd _database/basic && terraform destroy --var-file iam.tfvars --auto-approve)
 ```

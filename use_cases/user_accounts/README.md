@@ -7,16 +7,6 @@
 
 ### Differentiators
 
-* Security
-  * In any system that handles user information, security is critical
-  * We've seen from all too many data breaches, the impact of not adequately protecting user data
-  * CockroachDB's
-    * Encryption at rest, encryption in-flight
-    * SSO, MFA, RBAC
-    * CMEKs
-    * Egress perimeter controls
-    * ...all work to protect your users' data
-
 * Resilience - takes care of the database side of "always on" or "zero downtime"
 
 * Scalability - it allows you to scale as your user base grows, you simply add more nodes to the cluster
@@ -37,6 +27,16 @@
 * Multi-region data placement - create policies to ensure that user data stays local to them
   * This helps you comply with regulations
   * Keeps read and write latencies for all users low
+
+* Security
+  * In any system that handles user information, security is critical
+  * We've seen from all too many data breaches, the impact of not adequately protecting user data
+  * CockroachDB's
+    * Encryption at rest, encryption in-flight
+    * SSO, MFA, RBAC
+    * CMEKs
+    * Egress perimeter controls
+    * ...all work to protect your users' data
 
 ### Scenarios
 

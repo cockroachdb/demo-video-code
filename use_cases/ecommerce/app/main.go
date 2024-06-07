@@ -61,31 +61,38 @@ func main() {
 		}
 	}()
 
-	server(db)
+	server()
 }
 
 func mustLoadDatabaseURL() string {
 	flyRegion, ok := os.LookupEnv("FLY_REGION")
 	if ok {
 		switch flyRegion {
-		case "lhr", "fra":
+
+		case "lhr", "fra", "ams", "cdg":
+			log.Printf("using DATABASE_URL_EU for %q", flyRegion)
 			url, ok := os.LookupEnv("DATABASE_URL_EU")
 			if !ok {
 				log.Fatalf("missing DATABASE_URL_EU env var")
 			}
 			return url
+
 		case "iad":
+			log.Printf("using DATABASE_URL_US for %q", flyRegion)
 			url, ok := os.LookupEnv("DATABASE_URL_US")
 			if !ok {
 				log.Fatalf("missing DATABASE_URL_US env var")
 			}
 			return url
+
 		case "sin":
+			log.Printf("using DATABASE_URL_AP for %q", flyRegion)
 			url, ok := os.LookupEnv("DATABASE_URL_AP")
 			if !ok {
 				log.Fatalf("missing DATABASE_URL_AP env var")
 			}
 			return url
+
 		default:
 			log.Fatalf("unexpected FLY_REGION: %q", flyRegion)
 		}
@@ -99,7 +106,7 @@ func mustLoadDatabaseURL() string {
 	return databaseURL
 }
 
-func server(db *pgxpool.Pool) {
+func server() {
 	router := fiber.New()
 	router.Use(cors.New())
 
@@ -202,14 +209,10 @@ func browse(db *pgxpool.Pool, region, market string) ([]marketProduct, error) {
 									AS OF SYSTEM TIME follower_read_timestamp()
 								WHERE mp.crdb_region = $1
 								AND mp.market = $2
-								AND mp.amount BETWEEN $3 AND $4
 								LIMIT 20`
 
-	min := rand.Intn(255 - 10)
-	max := min + 10
-
 	var products []marketProduct
-	rows, err := db.Query(context.Background(), stmt, region, market, min, max)
+	rows, err := db.Query(context.Background(), stmt, region, market)
 	if err != nil {
 		return nil, fmt.Errorf("querying products: %w", err)
 	}

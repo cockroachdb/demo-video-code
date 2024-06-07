@@ -7,13 +7,9 @@ terraform {
 }
 
 resource "cockroach_cluster" "demo" {
-  cloud_provider = "AWS"
+  cloud_provider = var.cloud_provider
   name           = var.cluster_name
-  regions = [
-    { name : "eu-central-1", primary = true },
-    { name : "ap-southeast-1" },
-    { name : "us-east-1" },
-  ]
+  regions        = var.regions
 
   serverless = {
     spend_limit = 0

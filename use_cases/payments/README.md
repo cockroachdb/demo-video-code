@@ -8,6 +8,18 @@
 * Encrypted card numbers
 * Data pinning to help with regulatory compliance
 
+### Card-Present Transaction flow
+
+1. The customer taps their card or enters their payment information
+2. That information is sent to the acquirer (the merchant's bank) via their payment gateway
+3. The acquirer contacts the card company...
+4. ...which forwards the request to the issuer (the customer's bank)
+5. The issuer validates the transaction (i.e. the customer is allowed to make the transaction and has sufficient funds to make the transaction)
+6. The request returns via each of the processing parties and back to the merchant, who either:
+  a. Confirms the payment
+  b. Issues a challenge to the customer
+  c. Rejects the payment
+
 ### Differentiators
 
 * Security
@@ -50,6 +62,14 @@
     * Authoriation
     * ...and any additional processing
   * CockroachDB's built-in change data capture (CDC) offers a transactionally consistent integration point for these
+
+# Local
+
+**5 terminal windows**
+
+# Cloud
+
+**2 terminal windows**
 
 ### Scenarios
 
@@ -97,13 +117,17 @@ export CLUSTER_ID=$(cd _database/advanced && terraform output -raw cluster_id)
 export ACCOUNT_ID=$(cd _database/advanced && terraform output -raw account_id)
 ```
 
-Show that that none of the PCI readiness features are enabled
+> Show that that none of the PCI readiness features are enabled
+
+### Add PCI compliance requirements
+
+**The following may need to be applied a few times**
 
 ``` sh
 (cd payments/infra && terraform init)
 (cd payments/infra && terraform apply \
-  -var cockroach_cluster_account_id=$ACCOUNT_ID \
-  -var cockroach_cluster_id=$CLUSTER_ID)
+  -var cockroach_cluster_account_id=${ACCOUNT_ID} \
+  -var cockroach_cluster_id=${CLUSTER_ID})
 ```
 
 Download the certificate
@@ -115,24 +139,10 @@ curl --create-dirs -o $HOME/Library/CockroachCloud/certs/562b7548-fc68-4111-8204
 Connect to cluster
 
 ``` sh
-cockroach sql --url "$(cd _database/advanced && terraform output -raw shell_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/562b7548-fc68-4111-8204-4d8356a31dd2/crdb-use-cases-ca.crt"
+cockroach sql --url "$(cd _database/advanced && terraform output -raw shell_url)&sslrootcert=$HOME/Library/CockroachCloud/certs/$ORG_ID/crdb-use-cases-ca.crt"
 ```
 
-### AWS PrivateLink
-
-Create the VPC endpoints
-
-``` sh
-aws ec2 create-vpc-endpoint \
-  --region eu-central-1 \
-  --vpc-id vpc-0d1a06ee7c65fa1bc \
-  --subnet-ids {SUBNET_ID1} {SUBNET_ID2} \
-  --vpc-endpoint-type Interface \
-  --security-group-ids {SECURITY_GROUP_ID1} {SECURITY_GROUP_ID2} \
-  --service-name com.amazonaws.vpce.eu-central-1.vpce-svc-034c9a208c8e6f4a6
-```
-
-Create topics
+Create topics (local)
 
 ``` sh
 kafkactl create topic fraud_check
@@ -323,6 +333,14 @@ Get the payment card for an order
 
 ``` sql
 SELECT
+  cd.card_number,
+  cd.expiry
+FROM card_details cd
+JOIN orders o ON cd.user_id = o.user_id
+WHERE o.id = '1e1ff8f6-3644-4f20-8992-7e95d0dd23fe'
+AND cd.is_default;
+
+SELECT
   convert_from(
     decrypt_iv(
       cd.card_number,
@@ -344,6 +362,7 @@ Fetch order
 ``` sql
 SELECT
   o.status,
+  o.amount,
   o.payment_reference
 FROM orders o;
 ```
@@ -365,6 +384,7 @@ Fetch order
 ``` sql
 SELECT
   o.status,
+  o.amount,
   o.payment_reference
 FROM orders o;
 ```

@@ -84,7 +84,7 @@ output "ecommerce_app_url_us" {
     "postgres://%s:%s@%s:26257/store?sslmode=require",
     var.user_name,
     random_password.demo.result,
-    cockroach_cluster.demo.regions[2].sql_dns
+    cockroach_cluster.demo.regions[1].sql_dns
   )
 }
 
@@ -94,6 +94,6 @@ output "ecommerce_app_url_ap" {
     "postgres://%s:%s@%s:26257/store?sslmode=require",
     var.user_name,
     random_password.demo.result,
-    cockroach_cluster.demo.regions[1].sql_dns
+    cockroach_cluster.demo.regions[2].sql_dns
   )
 }

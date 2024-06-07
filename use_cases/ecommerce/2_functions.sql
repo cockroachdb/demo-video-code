@@ -9,18 +9,6 @@ CREATE OR REPLACE FUNCTION add_to_basket(cust_id UUID, market_prod_id UUID, regi
 $$ LANGUAGE PLpgSQL;
 
 
-CREATE OR REPLACE FUNCTION user_basket(IN cust_id UUID, IN region CRDB_INTERNAL_REGION) RETURNS JSON AS $$
-  SELECT
-    json_agg(json_build_object(
-      'product', b.market_product_id,
-      'quantity', b.quantity
-    ))
-  FROM basket b
-  WHERE b.customer_id = cust_id
-  AND b.crdb_region = region;
-$$ LANGUAGE SQL;
-
-
 CREATE OR REPLACE FUNCTION checkout(cust_id UUID, region CRDB_INTERNAL_REGION) RETURNS UUID LANGUAGE PLpgSQL AS $$
   DECLARE
     products_out_of_stock UUID[];

@@ -1,17 +1,3 @@
---------------------------
--- Database and regions --
---------------------------
-CREATE DATABASE store
-  PRIMARY REGION 'aws-us-east-1'
-  REGIONS 'aws-eu-central-1', 'aws-ap-southeast-1';
-
-USE store;
-
-SET enable_super_regions = 'on';
-ALTER DATABASE store ADD SUPER REGION "us" VALUES 'aws-us-east-1';
-ALTER DATABASE store ADD SUPER REGION "eu" VALUES 'aws-eu-central-1';
-ALTER DATABASE store ADD SUPER REGION "ap" VALUES 'aws-ap-southeast-1';
-
 ------------
 -- Tables --
 ------------
@@ -43,11 +29,11 @@ CREATE TABLE market_product (
       WHEN "market" IN ('de', 'es', 'fr', 'ie', 'uk') THEN 'aws-eu-central-1'
       WHEN "market" IN ('br', 'bs', 'co', 'mx', 'us') THEN 'aws-us-east-1'
       WHEN "market" IN ('hk', 'in', 'ja', 'my', 'sg') THEN 'aws-ap-southeast-1'
-      ELSE 'aws-us-east-1'
+      ELSE 'aws-eu-central-1'
     END
   ) STORED,
 
-  INDEX ("market", "amount") STORING ("currency")
+  INDEX ("market") STORING ("currency")
 ) LOCALITY REGIONAL BY ROW;
 
 

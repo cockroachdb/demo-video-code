@@ -8,3 +8,12 @@ variable "user_name" {
   type        = string
 }
 
+variable "cloud_provider" {
+  description = "name of the cloud provider to use for the cluster"
+  type        = string
+}
+
+variable "regions" {
+  description = "region configuration to apply to the cluster"
+  type        = list(any)
+}

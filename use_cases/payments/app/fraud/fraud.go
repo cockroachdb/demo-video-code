@@ -17,8 +17,6 @@ func main() {
 	reader := connect.MustConnectKafkaReader("KAFKA_URL", "fraud_check")
 	defer reader.Close()
 
-	log.Println(reader.Config())
-
 	fraudCheckEvents(reader)
 }
 
