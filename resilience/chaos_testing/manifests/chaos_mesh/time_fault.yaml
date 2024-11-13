@@ -1,0 +1,12 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: time-shift
+  namespace: chaos-mesh
+spec:
+  mode: one
+  selector:
+    namespaces: [crdb]
+  timeOffset: -10m
+  containerNames: [cockroachdb]
+  clockIds: ["CLOCK_REALTIME", "CLOCK_MONOTONIC"]

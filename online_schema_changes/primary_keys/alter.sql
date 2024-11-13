@@ -1,0 +1,1 @@
+ALTER TABLE person ALTER PRIMARY KEY USING COLUMNS (country, id);

@@ -1,0 +1,32 @@
+tables:
+
+  - name: example
+    count: 100000
+    columns:
+
+      - name: uuid_column
+        type: gen
+        processor:
+          value: ${uuid}
+
+      - name: date_column
+        type: gen
+        processor:
+          value: ${date}
+          format: 2006-01-02
+
+      - name: timestamp_column
+        type: gen
+        processor:
+          value: ${date}
+          format: 2006-01-02T15:04:05Z
+
+      - name: int_column
+        type: gen
+        processor:
+          value: ${int16}
+
+      - name: string_column
+        type: gen
+        processor:
+          value: ${name}

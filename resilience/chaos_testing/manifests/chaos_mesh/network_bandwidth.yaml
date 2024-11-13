@@ -1,0 +1,13 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: bandwidth
+spec:
+  action: bandwidth
+  mode: all
+  selector:
+    namespaces: [crdb]
+  bandwidth:
+    rate: 1mbps
+    limit: 100000
+    buffer: 100000

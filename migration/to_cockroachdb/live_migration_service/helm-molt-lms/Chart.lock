@@ -1,0 +1,18 @@
+dependencies:
+- name: prometheus
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 22.6.6
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 6.57.3
+- name: loki
+  repository: https://grafana.github.io/helm-charts
+  version: 5.39.0
+- name: promtail
+  repository: https://grafana.github.io/helm-charts
+  version: 6.14.1
+- name: lms
+  repository: https://molt.cockroachdb.com/lms/charts
+  version: 0.2.4
+digest: sha256:054f1a40c42c14340f52c000bea2772db3be8fa6d55bc88da6e384fcfc598cb1
+generated: "2023-12-04T15:16:03.888365Z"

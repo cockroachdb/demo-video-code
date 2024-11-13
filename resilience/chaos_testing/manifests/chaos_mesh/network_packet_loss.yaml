@@ -1,0 +1,19 @@
+kind: NetworkChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+  namespace: default
+  name: packet-loss
+spec:
+  selector:
+    namespaces:
+      - crdb
+  mode: all
+  action: loss
+  loss:
+    loss: '10'
+  direction: to
+  target:
+    selector:
+      namespaces:
+        - crdb
+    mode: all

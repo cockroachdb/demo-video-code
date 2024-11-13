@@ -1,0 +1,52 @@
+tables:
+
+  - name: person
+    count: 1000000
+    columns:
+
+      - name: id
+        type: gen
+        processor:
+          value: ${uuid}
+          
+      - name: full_name
+        type: gen
+        processor:
+          value: ${name}
+      
+      - name: date_of_birth
+        type: gen
+        processor:
+          value: ${date}
+          format: 2006-01-02
+      
+      - name: country
+        type: set
+        processor:
+          values: [DE, FR, SE, UK, US]
+
+  - name: pet
+    count: 500000
+    columns:
+
+      - name: name
+        type: gen
+        processor:
+          value: ${first_name}
+      
+      - name: date_of_birth
+        type: gen
+        processor:
+          value: ${date}
+          format: 2006-01-02
+      
+      - name: type
+        type: set
+        processor:
+          values: [dog, cat, hamster, rat, duck, hippo]
+      
+      - name: person_id
+        type: ref
+        processor:
+          table: person
+          column: id

@@ -1,0 +1,6 @@
+# Ignore charts that are pulled when installing locally
+charts/
+
+# Ignore AWS secrets
+access-key
+secret-access-key

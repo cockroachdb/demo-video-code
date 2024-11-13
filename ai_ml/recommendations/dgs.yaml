@@ -1,0 +1,72 @@
+tables:
+    - name: customer
+      rows: 100000
+      columns:
+        - name: id
+          value: ${uuid}
+        - name: email
+          value: ${email}
+        - name: gender
+          set:
+            - male
+            - female
+            - trans-male
+            - trans-female
+            - non-binary
+        - name: date_of_birth
+          range: timestamp
+          props:
+            min: 1950-01-01T00:00:00Z
+            max: 2006-01-21T00:00:00Z
+            format: "2006-01-02"
+        - name: location
+          range: point
+          props:
+            lat: 51.04284752235447
+            lon: -0.8911379425829405
+            distance_km: 20000
+
+    - name: product
+      rows: 1000
+      columns:
+        - name: id
+          value: ${uuid}
+        - name: name
+          value: ${product_name}
+        - name: price
+          range: float
+          props:
+            min: 1
+            max: 100
+
+    - name: purchase
+      rows: 200000
+      columns:
+        - name: id
+          value: ${uuid}
+        - name: customer_id
+          ref: customer.id
+        - name: total
+          range: float
+          props:
+            min: 1
+            max: 1000
+        - name: ts
+          range: timestamp
+          props:
+            min: 2014-08-01T01:00:00+01:00
+            max: 2024-07-29T01:00:00+01:00
+            format: "2006-01-02T15:04:05Z"
+
+    - name: purchase_item
+      rows: 250000
+      columns:
+        - name: purchase_id
+          ref: purchase.id
+        - name: product_id
+          ref: product.id
+        - name: quantity
+          range: int
+          props:
+            min: 1
+            max: 5

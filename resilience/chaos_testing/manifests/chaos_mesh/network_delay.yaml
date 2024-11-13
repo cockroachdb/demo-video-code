@@ -1,0 +1,13 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: delay
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - crdb
+  delay:
+    latency: 10ms
+    jitter: 100ms

@@ -1,0 +1,4 @@
+mirrors:
+"localhost:9090":
+    endpoint:
+      - http://k3d-local-registry:9090

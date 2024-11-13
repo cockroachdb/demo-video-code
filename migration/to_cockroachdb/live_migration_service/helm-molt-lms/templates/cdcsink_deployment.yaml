@@ -1,0 +1,47 @@
+#  Copyright 2023 Cockroach Labs Inc.
+
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+{{- if .Values.cdcsink.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lms-cdcsink
+  labels:
+    release: lms-cdcsink
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /_/varz
+    prometheus.io/port: {{ .Values.cdcsink.metricsPort | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      release: lms-cdcsink
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /_/varz
+        prometheus.io/port: {{ .Values.cdcsink.metricsPort | quote }}
+      labels:
+        release: lms-cdcsink
+    spec:
+      containers:
+        - name: lms-cdcsink
+          image: "cockroachdb/cdc-sink:master"
+          imagePullPolicy: Always
+          args: [
+          "mylogical", "-vv", "--sourceConn", "{{ tpl .Values.cdcsink.initSource . }}", "--targetConn", "{{ tpl .Values.cdcsink.initTarget . }}", "--targetDB", "{{ .Values.cdcsink.targetDB }}", "--defaultGTIDSet", "{{ .Values.lms.gtidSet }}", "--stagingDB", "{{ .Values.cdcsink.stagingDB }}","--metricsAddr","0.0.0.0:{{ .Values.cdcsink.metricsPort }}"
+          ]
+{{- end}}

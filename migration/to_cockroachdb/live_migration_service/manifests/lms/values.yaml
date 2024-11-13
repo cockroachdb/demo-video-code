@@ -1,0 +1,68 @@
+# Overrides the chart name against the label "app.kubernetes.io/name: " placed on every resource this chart creates.
+nameOverride: ""
+
+# Override the resource names created by this chart which originally is generated using release and chart name.
+fullnameOverride: ""
+
+# Additional labels to apply to all Kubernetes resources created by this chart.
+labels: {}
+
+image:
+  repository: cockroachdb/molt-lms
+  pullPolicy: IfNotPresent
+  tag: 0.2.1
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+lms:
+  replicaCount: 1
+  releaseName: "molt-lms"
+  sourceDialect: "mysql"
+  shadowMode: strict-sync
+  configSecretName: "lms-secret"
+  logLevel: info
+
+  env: []
+  labels: {}
+  annotations: {}
+
+  service:
+    type: ClusterIP
+    port: 9043
+    metricsPort: 9044
+    labels: {}
+    annotations: {}
+
+orchestrator:
+  releaseName: "molt-lms-orchestrator"
+  sourceDialect: "mysql"
+  configSecretName: "orch-secret"
+  # allowOrigin specifies the pattern or exact host(s) that should be
+  # allowed to make requests from a browser (CORS).
+  allowOrigin: ""
+  logLevel: info
+
+  env: []
+  labels: {}
+  annotations: {}
+
+  service:
+    type: ClusterIP
+    port: 4200
+    metricsPort: 4201
+    labels: {}
+    annotations: {}
+
+serviceMonitor:
+  enabled: true
+  labels: {}
+  annotations: {}
+  interval: 30s
+  namespaced: false

@@ -1,0 +1,206 @@
+#  Copyright 2023 Cockroach Labs Inc.
+
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+global:
+  lmsInitSource: 'mysql://root:password@mysql.default.svc.cluster.local:3306/defaultdb?sslmode=disable'
+  lmsInitTarget: 'postgresql://root@cockroachdb-public.crdb.svc.cluster.local:26257/defaultdb?sslmode=disable'
+  lmsURL: 'mysql://root:password@(lms.{{ .Release.Namespace }}.svc.cluster.local:9043)/defaultdb'
+
+lms:
+  image:
+    repository: k3d-local-registry:9090/cockroachdb/molt-lms
+    tag: latest
+  lms:
+    replicaCount: 3
+    sourceDialect: "mysql"
+    shadowMode: none
+    logLevel: info
+
+    env: 
+      - name: LMS_INIT_SOURCE
+        value: '{{ tpl .Values.global.lmsInitSource . }}'
+      - name: LMS_INIT_TARGET
+        value: '{{ tpl .Values.global.lmsInitTarget . }}'
+
+    annotations: 
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /vars
+      prometheus.io/port: "9044"
+      # Annotation for the upgrade tests since when annotations change, 
+      # the deployment will do a rolling restart on update.
+      restartedAt: "never"
+
+  orchestrator:
+    sourceDialect: "mysql"
+
+    env:
+      - name: ORCH_CRDB_URL
+        value: '{{ tpl .Values.global.lmsInitTarget . }}'
+      - name: ORCH_LMS_URL
+        value: '{{ tpl .Values.global.lmsURL . }}'
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "4201"
+
+orchestrator:
+  tlsEnabled: false
+
+workload:
+  lmsConnStr: '{{ tpl "root:password@(lms.{{ .Release.Namespace }}.svc.cluster.local:9043)/defaultdb" . }}'
+
+cdcsink:
+  enabled: true
+  gtidSet: ""
+  targetDB: defaultdb.public
+  stagingDB: defaultdb
+  metricsPort: 30004
+  initSource: '{{ tpl .Values.global.lmsInitSource . }}'
+  initTarget: '{{ tpl .Values.global.lmsInitTarget . }}'
+
+# Needed so the node exporter doesn't crash loop
+prometheus:
+  prometheus-node-exporter:
+    hostRootFsMount:
+      enabled: false
+  server:
+    global:
+      scrape_interval: 15s
+
+# # Keep for now as this is a testing chart and we don't need to
+# # enable tls
+# cockroachdb:
+#   tls:
+#     enabled: false
+
+mysql:
+  auth:
+    rootPassword: password
+    database: defaultdb
+  primary:
+    configuration: |-
+      [mysqld]
+      default_authentication_plugin=mysql_native_password
+      skip-name-resolve
+      explicit_defaults_for_timestamp
+      basedir=/opt/bitnami/mysql
+      plugin_dir=/opt/bitnami/mysql/lib/plugin
+      port=3306
+      socket=/opt/bitnami/mysql/tmp/mysql.sock
+      datadir=/bitnami/mysql/data
+      tmpdir=/opt/bitnami/mysql/tmp
+      max_allowed_packet=16M
+      bind-address=*
+      pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+      log-error=/opt/bitnami/mysql/logs/mysqld.log
+      character-set-server=UTF8
+      collation-server=utf8_general_ci
+      slow_query_log=0
+      long_query_time=10.0
+      gtid_mode=on
+      enforce_gtid_consistency=on
+      binlog_row_metadata=full
+
+      [client]
+      port=3306
+      socket=/opt/bitnami/mysql/tmp/mysql.sock
+      default-character-set=UTF8
+      plugin_dir=/opt/bitnami/mysql/lib/plugin
+
+      [manager]
+      port=3306
+      socket=/opt/bitnami/mysql/tmp/mysql.sock
+      pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+
+postgresql:
+  auth:
+    postgresPassword: password
+    database: defaultdb
+  primary:
+    extendedConfiguration: |-
+      wal_level = logical
+
+grafana:
+  adminPassword: admin
+  plugins:
+    - cloudspout-button-panel
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: prometheus
+        type: prometheus
+        url: http://{{ .Release.Name }}-prometheus-server.{{ .Release.Namespace }}.svc.cluster.local
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: 15s
+      - name: Loki
+        type: loki
+        url: http://loki-gateway:80
+        editable: true
+        jsonData:
+          httpHeaderName1: 'X-Scope-OrgID'
+        secureJsonData:
+          httpHeaderValue1: '1'
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+  dashboardsConfigMaps:
+    default: "lms-dashboard"
+
+loki:
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: 'filesystem'
+  singleBinary:
+    replicas: 1
+    persistence:
+      enabled: true
+      size: 50Gi
+
+promtail:
+  config:
+    logLevel: info
+    serverPort: 3101
+    clients:
+      - url: http://loki-gateway/loki/api/v1/push
+        tenant_id: 1
+
+deps:
+  grafana:
+    enabled: true
+  prometheus:
+    enabled: true  
+  loki:
+    enabled: true 
+  promtail:
+    enabled: true
+  mysql:
+    enabled: false
+  postgresql:
+    enabled: false

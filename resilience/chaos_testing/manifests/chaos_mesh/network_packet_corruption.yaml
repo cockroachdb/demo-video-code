@@ -1,0 +1,12 @@
+kind: NetworkChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+ name: network-corruption
+spec:
+ selector:
+   namespaces: [crdb]
+ mode: one
+ action: corrupt
+ corrupt:
+   corrupt: '5'
+ direction: to

@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: partition
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - crdb
+    labelSelectors:
+      statefulset.kubernetes.io/pod-name: cockroachdb-0
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - crdb
+      labelSelectors:
+        statefulset.kubernetes.io/pod-name: cockroachdb-1
