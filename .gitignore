@@ -17,3 +17,4 @@ go.work
 # Local dev
 csvs/
 inflight_trace_dump/
+node*/

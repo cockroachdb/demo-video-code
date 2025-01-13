@@ -5,12 +5,14 @@ go 1.22.0
 toolchain go1.22.4
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.1.2
 	github.com/fatih/color v1.17.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/pgvector/pgvector-go v0.2.2
 	github.com/stretchr/testify v1.9.0
 	github.com/tmc/langchaingo v0.1.12
+	golang.org/x/sync v0.7.0
 )
 
 require (
@@ -62,7 +64,6 @@ require (
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

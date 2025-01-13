@@ -22,5 +22,8 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
     * [Primary Keys](online_schema_changes/primary_keys/README.md)
     * [Foreign Keys](online_schema_changes/foreign_keys/README.md)
 
+* Replication
+  * [Logical Data Replication for 2DC](replication/ldr/2dc/README.md)
+
 * Resilience
   * [Chaos Testing](resilience/chaos_testing/README.md)
