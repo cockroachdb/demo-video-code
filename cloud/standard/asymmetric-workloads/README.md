@@ -44,28 +44,9 @@ response=$(curl -s https://cockroachlabs.cloud/api/v1/clusters \
     }')
 ```
 
-Create Basic cluster
+Capture cluster config
 
 ```sh
-response=$(curl -s https://cockroachlabs.cloud/api/v1/clusters \
--H "Authorization: Bearer ${COCKROACH_API_KEY}" \
--H "Content-Type: application/json" \
--d '{
-      "name": "crdb-asymmetric-workloads",
-      "provider": "AWS",
-      "plan": "basic",
-      "spec": {
-        "serverless": {
-          "regions": [
-            "us-east-1",
-            "eu-central-1",
-            "ap-southeast-1"
-          ],
-          "primary_region": "eu-central-1"
-        }
-      }
-    }')
-
 export CLUSTER_ID=$(echo "$response" | jq -r .id)
 
 export GLOBAL_HOST=$(echo "$response" | jq -r '.sql_dns')
@@ -80,7 +61,6 @@ export AP_URL="postgres://rob:${pass}@${AP_HOST}:26257/defaultdb?sslmode=verify-
 export EU_URL="postgres://rob:${pass}@${EU_HOST}:26257/defaultdb?sslmode=verify-full"
 export US_URL="postgres://rob:${pass}@${US_HOST}:26257/defaultdb?sslmode=verify-full"
 
-# Check cluster status.
 curl -s https://cockroachlabs.cloud/api/v1/clusters/${CLUSTER_ID} \
 -H "Authorization: Bearer ${COCKROACH_API_KEY}" | jq .state -r
 ```
