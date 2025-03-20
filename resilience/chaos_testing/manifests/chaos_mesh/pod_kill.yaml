@@ -1,14 +1,11 @@
 apiVersion: chaos-mesh.org/v1alpha1
-kind: Schedule
+kind: PodChaos
 metadata:
-  name: schedule-pod-kill
+  name: pod-kill
+  namespace: chaos-mesh
 spec:
-  schedule: '*/2 * * * *'
-  type: PodChaos
-  concurrencyPolicy: 'Allow'
-  podChaos:
-    action: pod-kill
-    mode: one
-    duration: 1m
-    selector:
-      namespaces: [crdb]
+  action: pod-kill
+  mode: one
+  duration: 30s
+  selector:
+    namespaces: [crdb]

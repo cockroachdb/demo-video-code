@@ -1,14 +1,11 @@
 apiVersion: chaos-mesh.org/v1alpha1
-kind: Schedule
+kind: PodChaos
 metadata:
-  name: schedule-pod-failure
+  name: pod-failure
+  namespace: chaos-mesh
 spec:
-  schedule: '*/2 * * * *'
-  type: PodChaos
-  concurrencyPolicy: 'Allow'
-  podChaos:
-    action: pod-failure
-    mode: one
-    duration: 1m
-    selector:
-      namespaces: [crdb]
+  action: pod-failure
+  mode: one
+  duration: 30s
+  selector:
+    namespaces: [crdb]
