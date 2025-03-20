@@ -144,7 +144,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: cockroachdb
-        image: cockroachdb/cockroach:v24.1.0
+        image: cockroachdb/cockroach:v25.1.2
         imagePullPolicy: IfNotPresent
         resources:
           requests:

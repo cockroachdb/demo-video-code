@@ -13,9 +13,13 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
   * Ranges
     * [Deep Dive](architecture/ranges/deep_dive/README.md)
 
+* Cloud
+  * Standard
+    * [Asymmetric Workloads](cloud/standard/asymmetric-workloads/README.md)
+
 * Migration
   * To CockroachDB
-    * [Live Migration Service](migration/to_cockroachdb/live_migration_service/steps.md)
+    * [Live Migration Service](migration/to_cockroachdb/live_migration_service/README.md)
 
 * Operational Efficiency
   * Online Schema Changes
