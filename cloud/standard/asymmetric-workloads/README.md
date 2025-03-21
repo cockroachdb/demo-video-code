@@ -60,7 +60,11 @@ export GLOBAL_URL="postgres://rob:${pass}@${GLOBAL_HOST}:26257/defaultdb?sslmode
 export AP_URL="postgres://rob:${pass}@${AP_HOST}:26257/defaultdb?sslmode=verify-full"
 export EU_URL="postgres://rob:${pass}@${EU_HOST}:26257/defaultdb?sslmode=verify-full"
 export US_URL="postgres://rob:${pass}@${US_HOST}:26257/defaultdb?sslmode=verify-full"
+```
 
+Wait for cluster
+
+```sh
 curl -s https://cockroachlabs.cloud/api/v1/clusters/${CLUSTER_ID} \
 -H "Authorization: Bearer ${COCKROACH_API_KEY}" | jq .state -r
 ```
@@ -87,8 +91,10 @@ cockroach sql --url ${GLOBAL_URL} -e "SELECT gateway_region()"
 Configure multi-region
 
 ```sh
-cockroach sql --url ${GLOBAL_URL} -f cloud/standard/asymmetric-workloads/create.sql
+cockroach sql --url ${EU_URL} -f cloud/standard/asymmetric-workloads/create.sql
 ```
+
+# Demo starts here
 
 ### Demo
 
@@ -147,4 +153,38 @@ curl -X DELETE -s https://cockroachlabs.cloud/api/v1/clusters/${CLUSTER_ID} \
 -H "Authorization: Bearer ${COCKROACH_API_KEY}" \
 -H "Content-Type: application/json" \
 | jq .state -r
+```
+
+### Scratchpad
+
+Connect
+
+```sh
+cockroach sql --url ${EU_URL}
+```
+
+```sql
+SELECT DISTINCT
+  split_part(unnest(replica_localities), ',', 1) AS replica_localities,
+  replicas
+FROM [SHOW RANGE FROM TABLE account FOR ROW (
+  'aws-us-east-1',
+  (SELECT id FROM account WHERE crdb_region = 'aws-us-east-1' LIMIT 1)
+)]
+UNION ALL
+SELECT DISTINCT
+  split_part(unnest(replica_localities), ',', 1) AS replica_localities,
+  replicas
+FROM [SHOW RANGE FROM TABLE account FOR ROW (
+  'aws-eu-central-1',
+  (SELECT id FROM account WHERE crdb_region = 'aws-eu-central-1' LIMIT 1)
+)]
+UNION ALL
+SELECT DISTINCT
+  split_part(unnest(replica_localities), ',', 1) AS replica_localities,
+  replicas
+FROM [SHOW RANGE FROM TABLE account FOR ROW (
+  'aws-ap-southeast-1',
+  (SELECT id FROM account WHERE crdb_region = 'aws-ap-southeast-1' LIMIT 1)
+)];
 ```

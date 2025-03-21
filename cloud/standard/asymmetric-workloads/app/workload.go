@@ -149,29 +149,37 @@ func getWorkTickFrequency(hour int) time.Duration {
 func getLocalSettings() (loco *time.Location, region string, url string, err error) {
 	url, hasFallbackURL := os.LookupEnv("CONNECTION_STRING")
 
-	var ok bool
 	switch os.Getenv("FLY_REGION") {
 	case "fra":
 		loco, err = time.LoadLocation("Europe/Berlin")
 		region = "aws-eu-central-1"
-		url, ok = os.LookupEnv("CONNECTION_STRING_EU")
-		if !ok && !hasFallbackURL {
+		localURL, ok := os.LookupEnv("CONNECTION_STRING_EU")
+
+		if ok {
+			url = localURL
+		} else if !hasFallbackURL {
 			err = fmt.Errorf("missing CONNECTION_STRING_EU and not fallback CONNECTION_STRING")
 		}
 
 	case "iad":
 		loco, err = time.LoadLocation("America/New_York")
 		region = "aws-us-east-1"
-		url, ok = os.LookupEnv("CONNECTION_STRING_US")
-		if !ok && !hasFallbackURL {
+		localURL, ok := os.LookupEnv("CONNECTION_STRING_US")
+
+		if ok {
+			url = localURL
+		} else if !hasFallbackURL {
 			err = fmt.Errorf("missing CONNECTION_STRING_US and not fallback CONNECTION_STRING")
 		}
 
 	case "sin":
 		loco, err = time.LoadLocation("Asia/Singapore")
 		region = "aws-ap-southeast-1"
-		url, ok = os.LookupEnv("CONNECTION_STRING_AP")
-		if !ok && !hasFallbackURL {
+		localURL, ok := os.LookupEnv("CONNECTION_STRING_AP")
+
+		if ok {
+			url = localURL
+		} else if !hasFallbackURL {
 			err = fmt.Errorf("missing CONNECTION_STRING_AP and not fallback CONNECTION_STRING")
 		}
 

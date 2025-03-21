@@ -1,0 +1,106 @@
+workflows:
+
+  init:
+    setup_queries:
+      - delete_accounts
+      - insert_accounts
+
+  online_business:
+    vus: 5
+    setup_queries:
+      - open_account
+      - fetch_accounts
+    queries:
+      - name: receive_transfer
+        rate: 10/1s
+  
+  individual:
+    vus: 10
+    setup_queries:
+      - open_account
+      - fetch_accounts
+    queries:
+      - name: make_transfer
+        rate: 1/1s
+
+activities:
+
+  delete_accounts:
+    type: exec
+    query: |-
+      TRUNCATE account;
+  
+  insert_accounts:
+    type: query
+    args:
+      - type: int
+        min: 10000
+        max: 10000
+    query: |-
+      INSERT INTO account (balance)
+        SELECT (1000)
+        FROM generate_series(1, $1)
+      RETURNING id
+
+  open_account:
+    type: query
+    args:
+      - type: float
+        min: 1000.0
+        max: 10000.0
+    query: |-
+      INSERT INTO account (balance)
+      VALUES ($1)
+      RETURNING id
+
+  fetch_accounts:
+    type: query
+    args:
+      - type: int
+        min: 1000
+        max: 1000
+    query: |-
+      SELECT id
+      FROM account
+      ORDER BY random()
+      LIMIT $1
+
+  make_transfer:
+    type: exec
+    args:
+      - type: ref
+        query: open_account
+        column: id
+      - type: ref
+        query: fetch_accounts
+        column: id
+      - type: float
+        min: 10.0
+        max: 100.0
+    query: |-
+      UPDATE account
+        SET balance = CASE 
+          WHEN id = $1 THEN balance - $3
+          WHEN id = $2 THEN balance + $3
+        END
+      WHERE id IN ($1, $2)
+
+  receive_transfer:
+    type: exec
+    args:
+      - type: ref
+        query: fetch_accounts
+        column: id
+      - type: ref
+        query: open_account
+        column: id
+      - type: float
+        min: 10.0
+        max: 100.0
+    query: |-
+      UPDATE account
+        SET balance = CASE 
+          WHEN id = $1 THEN balance - $3
+          WHEN id = $2 THEN balance + $3
+        END
+      WHERE id IN ($1, $2)

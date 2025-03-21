@@ -23,3 +23,8 @@ FROM generate_series(1, 1000);
 INSERT INTO account (balance, crdb_region)
 SELECT 1000, 'aws-ap-southeast-1'
 FROM generate_series(1, 1000);
+
+SET enable_super_regions = 'on';
+ALTER DATABASE defaultdb ADD SUPER REGION us VALUES "aws-us-east-1";
+ALTER DATABASE defaultdb ADD SUPER REGION eu VALUES "aws-eu-central-1"; 
+ALTER DATABASE defaultdb ADD SUPER REGION ap VALUES "aws-ap-southeast-1"; 

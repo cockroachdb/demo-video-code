@@ -46,7 +46,7 @@ cockroach sql --insecure -f resilience/chaos_testing/workload/create.sql
 
 drk \
 --url "postgres://root@localhost:26257?sslmode=disable" \
---config resilience/chaos_testing/workload/ecommerce.yaml \
+--config resilience/chaos_testing/workload/payments.yaml \
 --driver pgx \
 --retries 10 \
 --duration 1h \
