@@ -43,7 +43,13 @@ Run app
 
 ```sh
 cockroach sql --insecure -f resilience/chaos_testing/workload/create.sql
+```
 
+# Demo starts here
+
+Run workload
+
+```sh
 drk \
 --url "postgres://root@localhost:26257?sslmode=disable" \
 --config resilience/chaos_testing/workload/payments.yaml \
