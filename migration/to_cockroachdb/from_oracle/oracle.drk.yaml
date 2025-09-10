@@ -1,0 +1,87 @@
+workflows:
+
+  online_registration:
+    vus: 1
+    queries:
+      - name: register_customer
+        rate: 10/1s
+
+  casual_customer:
+    vus: 10
+    run_after: 5s
+    setup_queries:
+      - open_account
+      - fetch_accounts
+    queries:
+      - name: check_balance
+        rate: 1/1s
+      - name: make_transfer
+        rate: 1/2s
+
+activities:
+
+  register_customer:
+    type: exec
+    args:
+      - type: float
+        min: 1000.0
+        max: 100000.0
+    query: |-
+      INSERT INTO account (balance)
+      VALUES (:balance)
+
+  open_account:
+    type: query
+    query: |-
+      SELECT id
+      FROM account
+      ORDER BY DBMS_RANDOM.RANDOM
+      FETCH FIRST 1 ROW ONLY
+  
+  fetch_accounts:
+    type: query
+    args:
+      - type: ref
+        query: open_account
+        column: id
+      - type: int
+        min: 100
+        max: 100
+    query: |-
+      SELECT id
+      FROM account
+      WHERE id != :id
+      ORDER BY DBMS_RANDOM.RANDOM
+      FETCH FIRST :limit ROWS ONLY
+  
+  check_balance:
+    type: query
+    args:
+      - type: ref
+        query: open_account
+        column: id
+    query: |-
+      SELECT balance
+      FROM account
+      WHERE id = :id
+      FETCH FIRST 1 ROW ONLY
+  
+  make_transfer:
+    type: exec
+    args:
+      - type: ref
+        query: open_account
+        column: id
+      - type: ref
+        query: fetch_accounts
+        column: id
+      - type: float
+        min: 10.0
+        max: 100.0
+    query: |-
+      UPDATE account SET
+        balance = CASE 
+                    WHEN id = :from_id THEN balance - :amount
+                    WHEN id = :to_id THEN balance + :amount
+                  END
+      WHERE id IN (:to_id, :from_id)

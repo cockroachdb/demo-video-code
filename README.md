@@ -20,6 +20,7 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
 * Migration
   * To CockroachDB
     * [Live Migration Service](migration/to_cockroachdb/live_migration_service/README.md)
+    * [From Oracle](migration/to_cockroachdb/from_oracle/README.md)
 
 * Operational Efficiency
   * Online Schema Changes

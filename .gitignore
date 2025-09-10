@@ -21,3 +21,4 @@ go.work
 csvs/
 inflight_trace_dump/
 node*/
+data/
