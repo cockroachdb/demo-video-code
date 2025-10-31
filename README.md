@@ -8,7 +8,7 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
 * AI/ML
   * [RAG](ai_ml/rag/README.md)
   * [Recommendations](ai_ml/recommendations/README.md)
-  * [Vector Deep Dive](ai_ml/vector_deep_dive/README.mdq)
+  * [Vector Deep Dive](ai_ml/vector_deep_dive/README.md)
 
 * Architecture
   * Ranges
