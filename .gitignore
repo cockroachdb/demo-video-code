@@ -22,3 +22,8 @@ csvs/
 inflight_trace_dump/
 node*/
 data/
+
+# Demo-specific files
+node_modules/
+stored_audio/
+uploads/
