@@ -1,0 +1,42 @@
+workflows:
+
+  casual_shopper:
+    vus: 100
+    setup_queries:
+      - create_customer
+    queries:
+      - name: checkout
+        rate: 1/1s
+
+activities:
+
+  create_customer:
+    type: query
+    args:
+      - type: gen
+        value: email
+      - type: gen
+        value: phone
+      - type: set
+        values: [email, sms]
+        weights: [80, 20]
+    query: |-
+      INSERT INTO customer (email, phone, preferred_contact)
+      VALUES ($1, $2, $3)
+      RETURNING id
+
+  checkout:
+    args:
+      - type: ref
+        query: create_customer
+        column: id
+      - type: float
+        min: 1.0
+        max: 10.0
+      - type: point
+        lat: 51.54132360163191
+        lon: -0.14508409691164165
+        distance_km: 50.0
+    type: query
+    query: |-
+      INSERT INTO purchase (customer_id, amount, location) VALUES ($1, $2, $3)

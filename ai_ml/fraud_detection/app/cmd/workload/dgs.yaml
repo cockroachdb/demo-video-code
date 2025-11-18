@@ -1,0 +1,32 @@
+tables:
+    - name: customer
+      rows: 1000
+      columns:
+        - name: id
+          value: ${uuid}
+        - name: email
+          value: ${email}
+        - name: phone
+          value: ${phone}
+        - name: preferred_contact
+          set:
+            - email
+            - sms
+    - name: purchase
+      rows: 10000
+      columns:
+        - name: id
+          value: ${uuid}
+        - name: customer_id
+          ref: customer.id
+        - name: amount
+          range: float
+          props:
+            min: 1
+            max: 100
+        - name: location
+          range: point
+          props:
+            lat: 51.54132360163191
+            lon: -0.14508409691164165
+            distance_km: 100

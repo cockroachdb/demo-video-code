@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulsar
+spec:
+  selector:
+    app: pulsar
+  ports:
+    - name: pulsar-binary
+      port: 6650
+      targetPort: 6650
+    - name: pulsar-http
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulsar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulsar
+  template:
+    metadata:
+      labels:
+        app: pulsar
+    spec:
+      containers:
+      - name: pulsar
+        image: apachepulsar/pulsar:latest
+        command: ["/pulsar/bin/pulsar"]
+        args:
+          - "standalone"
+          - "--advertised-address"
+          - "$(POD_IP)"
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        ports:
+        - containerPort: 6650
+          name: pulsar-binary
+        - containerPort: 8080
+          name: pulsar-http
