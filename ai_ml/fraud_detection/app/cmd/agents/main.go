@@ -24,10 +24,7 @@ func main() {
 		log.Fatalf("setting variables from environment: %v", err)
 	}
 
-	b, err := bus.NewPulsarBus(e.BusBroker, e.GroupID, e.Topic)
-	if err != nil {
-		log.Fatalf("error creating pulsar bus: %v", err)
-	}
+	b := bus.NewKafkaBus([]string{e.BusBroker}, e.GroupID)
 
 	db, err := sql.Open(e.DatabaseDriver, e.DatabaseURL)
 	if err != nil {

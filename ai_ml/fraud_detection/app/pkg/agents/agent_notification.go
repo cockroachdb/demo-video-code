@@ -29,7 +29,8 @@ func NewNotification(d *Dependencies) (*Notification, error) {
 
 // Run blocks forever.
 func (a *Notification) Run(ctx context.Context) {
-	a.d.Bus.Run(ctx, a.Process)
+	c := a.d.Bus.NewConsumer(a.d.Topic)
+	c.Run(ctx, a.Process)
 }
 
 func (a *Notification) Name() string {

@@ -17,14 +17,14 @@ type Agent interface {
 }
 
 type Dependencies struct {
-	Bus    *bus.PulsarBus
+	Bus    *bus.KafkaBus
 	DB     *sql.DB
 	LLM    openai.Client
 	Region string
 	Topic  string
 }
 
-func NewDependencies(bus *bus.PulsarBus, db *sql.DB, llm openai.Client, region, topic string) *Dependencies {
+func NewDependencies(bus *bus.KafkaBus, db *sql.DB, llm openai.Client, region, topic string) *Dependencies {
 	return &Dependencies{
 		Bus:    bus,
 		DB:     db,

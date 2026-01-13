@@ -21,7 +21,8 @@ func NewReasoning(d *Dependencies) *Reasoning {
 
 // Run blocks forever.
 func (a *Reasoning) Run(ctx context.Context) {
-	a.d.Bus.Run(ctx, a.Process)
+	c := a.d.Bus.NewConsumer(a.d.Topic)
+	c.Run(ctx, a.Process)
 }
 
 func (a *Reasoning) Name() string {

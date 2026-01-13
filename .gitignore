@@ -21,7 +21,8 @@ go.work
 csvs/
 inflight_trace_dump/
 node*/
-data/
+data/*
+!data/**/*.sql
 
 
 # Demo-specific files

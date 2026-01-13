@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: agent
-        image: codingconcepts/large-scale-agentic-notification:v0.12.0
+        image: codingconcepts/large-scale-agentic:v0.13.0
         env:
         - name: OPENAI_API_KEY
           valueFrom:
@@ -28,7 +28,7 @@ spec:
         - name: DATABASE_URL
           value: "postgres://root@cockroachdb.crdb.svc.cluster.local:26257?sslmode=disable"
         - name: BUS_BROKER
-          value: "pulsar://pulsar.default.svc.cluster.local:6650"
+          value: "kafka.default.svc.cluster.local:29092"
         - name: GROUP_ID
           value: "notification"
         - name: REGION

@@ -25,7 +25,8 @@ func NewAnomalyDetection(d *Dependencies) *AnomalyDetection {
 func (a *AnomalyDetection) Run(ctx context.Context) {
 	go a.log()
 
-	a.d.Bus.Run(ctx, a.Process)
+	c := a.d.Bus.NewConsumer(a.d.Topic)
+	c.Run(ctx, a.Process)
 }
 
 func (a *AnomalyDetection) Name() string {
