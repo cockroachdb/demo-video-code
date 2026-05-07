@@ -15,7 +15,7 @@ Initialize environment
 
 ```sh
 export DATABASE_URL="postgres://root@localhost:26257/defaultdb?sslmode=disable"
-export OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+export OPENAI_API_KEY="YOUR_OPENAI_API_KEY -> Grab from https://platform.openai.com"
 ```
 
 ### Demo
