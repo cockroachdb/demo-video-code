@@ -6,6 +6,8 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
 ### Demos
 
 * AI/ML
+  * [Long-term Chat History](ai_ml/chat_history/README.md)
+  * [Fraud Detection](ai_ml/fraud_detection/README.md)
   * [RAG](ai_ml/rag/README.md)
   * [Recommendations](ai_ml/recommendations/README.md)
   * [Vector Deep Dive](ai_ml/vector_deep_dive/README.md)
