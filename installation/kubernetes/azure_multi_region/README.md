@@ -2,9 +2,6 @@
 
 Deploy CockroachDB on Kubernetes using the CockroachDB Kubernetes Operator on Azure Kubernetes Service.
 
-- **[Single-region](#single-region)** – 3-node cluster in `uksouth`
-- **[Multi-region](#multi-region)** – 9-node cluster across `eastus`, `uksouth`, `southeastasia`
-
 ### Prerequisites
 
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
