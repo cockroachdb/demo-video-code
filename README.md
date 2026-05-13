@@ -20,6 +20,11 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
   * Standard
     * [Asymmetric Workloads](cloud/standard/asymmetric-workloads/README.md)
 
+* Installation
+  * Kubernetes Operator
+    * [Azure - Single Region](installation/kubernetes/azure_single_region/README.md)
+    * [Azure - Multi Region](installation/kubernetes/azure_multi_region/README.md)
+
 * Migration
   * To CockroachDB
     * [Live Migration Service](migration/to_cockroachdb/live_migration_service/README.md)

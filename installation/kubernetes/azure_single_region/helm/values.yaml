@@ -1,0 +1,21 @@
+cockroachdb:
+  tls:
+    enabled: true
+    selfSigner:
+      enabled: true
+      caProvided: true
+      caSecret: cockroachdb-ca-secret
+  crdbCluster:
+    image:
+      name: cockroachdb/cockroach:v25.4.6
+    service:
+      public:
+        type: LoadBalancer
+    regions:
+      - code: uksouth
+        nodes: 3
+        cloudProvider: azure
+        namespace: cockroach-ns
+    localityMappings:
+      - nodeLabel: "topology.kubernetes.io/region"
+        localityLabel: "region"

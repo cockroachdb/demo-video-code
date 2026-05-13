@@ -1,0 +1,42 @@
+cockroachdb:
+  tls:
+    enabled: true
+    selfSigner:
+      enabled: true
+      caProvided: true
+      caSecret: cockroachdb-ca-secret
+      additionalSANs:
+        - "*.cockroachdb.cockroach-ns.svc.eastus.cockroachdb.internal"
+        - "*.cockroachdb.cockroach-ns.svc.uksouth.cockroachdb.internal"
+        - "*.cockroachdb.cockroach-ns.svc.southeastasia.cockroachdb.internal"
+        - "cockroachdb-join.cockroach-ns.svc.eastus.cockroachdb.internal"
+        - "cockroachdb-join.cockroach-ns.svc.uksouth.cockroachdb.internal"
+        - "cockroachdb-join.cockroach-ns.svc.southeastasia.cockroachdb.internal"
+        - "cockroachdb.cockroach-ns.svc.eastus.cockroachdb.internal"
+        - "cockroachdb.cockroach-ns.svc.uksouth.cockroachdb.internal"
+        - "cockroachdb.cockroach-ns.svc.southeastasia.cockroachdb.internal"
+  crdbCluster:
+    service:
+      public:
+        type: LoadBalancer
+    regions:
+      - code: eastus
+        nodes: 3
+        cloudProvider: azure
+        domain: eastus.cockroachdb.internal
+        namespace: cockroach-ns
+      - code: uksouth
+        nodes: 3
+        cloudProvider: azure
+        domain: uksouth.cockroachdb.internal
+        namespace: cockroach-ns
+      - code: southeastasia
+        nodes: 3
+        cloudProvider: azure
+        domain: southeastasia.cockroachdb.internal
+        namespace: cockroach-ns
+    localityMappings:
+      - nodeLabel: "topology.kubernetes.io/region"
+        localityLabel: "region"
+      - nodeLabel: "topology.kubernetes.io/zone"
+        localityLabel: "zone"

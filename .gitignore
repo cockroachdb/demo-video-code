@@ -1,5 +1,8 @@
 # Sensitive
 .env
+.env.keys
+certs/
+keys/
 
 # Binaries for programs and plugins
 *.exe
@@ -25,7 +28,16 @@ data/*
 !data/**/*.sql
 
 
+# Terraform
+.terraform/
+.terraform*
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
 # Demo-specific files
 node_modules/
 stored_audio/
 uploads/
+.env.keys
+helm-charts/
