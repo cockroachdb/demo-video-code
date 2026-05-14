@@ -1,6 +1,14 @@
 # CockroachDB Kubernetes Operator - Azure (AKS)
 
-Deploy CockroachDB on Kubernetes using the CockroachDB Kubernetes Operator on Azure Kubernetes Service.
+Deploy multi-region CockroachDB on Azure Kubernetes Service (AKS) using the CockroachDB Kubernetes Operator.
+Workflow: 
+(1) Set up three regional AKS clusters with VNet peering and private DNS, 
+(2) Deploy the operator and CockroachDB using Helm, 
+(3) Configure CoreDNS and ExternalDNS for cross-cluster DNS resolution, 
+(4) Create multi-region tables with REGIONAL BY ROW/TABLE and GLOBAL localities, 
+(5) Verify replication across regions and demonstrate data locality. 
+Includes teardown for cleanup.
+
 
 ### Prerequisites
 
@@ -49,9 +57,9 @@ This creates:
 Get kubectl credentials
 
 ```sh
-az aks get-credentials --resource-group cockroach-rob --name operator-demo-us
-az aks get-credentials --resource-group cockroach-rob --name operator-demo-eu
-az aks get-credentials --resource-group cockroach-rob --name operator-demo-asia
+az aks get-credentials --resource-group ${TF_VAR_resource_group_name} --name operator-demo-us
+az aks get-credentials --resource-group ${TF_VAR_resource_group_name} --name operator-demo-eu
+az aks get-credentials --resource-group ${TF_VAR_resource_group_name} --name operator-demo-asia
 ```
 
 ### Install CockroachDB
@@ -91,7 +99,7 @@ for CTX in "${CTXS[@]}"; do
 done
 ```
 
-Wait for operator
+Wait for operator roll out status
 
 ```sh
 for CTX in "${CTXS[@]}"; do
@@ -136,7 +144,7 @@ DNS_RG=$(cd installation/kubernetes/azure_multi_region/infra && terraform output
 for CTX in "${CTXS[@]}"; do
   CLUSTER_NAME=${CTX}
   KUBELET_ID=$(az aks show \
-    --resource-group cockroach-rob \
+    --resource-group ${TF_VAR_resource_group_name} \
     --name $CLUSTER_NAME \
     --query "identityProfile.kubeletidentity.clientId" -o tsv)
 
@@ -160,7 +168,7 @@ for CTX in "${CTXS[@]}"; do
 done
 ```
 
-Generate certificates and distribute to all clusters
+Generate certificates and distribute to all clusters (a good place to start a live demo)
 
 ```sh
 mkdir -p certs keys
@@ -227,6 +235,8 @@ declare -A REGIONS=(
   [ASIA]=operator-demo-asia
 )
 
+# Optional: Fetch context for each region. Fetch CRDB publicLB service. Loop waiting for public IPs. 
+
 for REGION in "${(@k)REGIONS}"; do
   CONTEXT="${REGIONS[$REGION]}"
   while true; do
@@ -256,8 +266,8 @@ cockroach sql --url ${CRDB_URL_EU}
 
 SELECT region FROM [SHOW REGIONS];
 
-CREATE USER IF NOT EXISTS rob WITH PASSWORD 'cockroach';
-GRANT admin TO rob;
+CREATE USER IF NOT EXISTS demo WITH PASSWORD 'cockroach';
+GRANT admin TO demo;
 
 CREATE DATABASE example
   PRIMARY REGION "azure-uksouth"
@@ -392,6 +402,7 @@ SELECT DISTINCT
 FROM [SHOW RANGES FROM TABLE customer]
 ORDER BY replica;
 
+--Show all data is distributed across globe 
 WITH replicas AS (
   SELECT DISTINCT
     split_part(unnest(replica_localities), ',', 1) AS replica_localities,
@@ -470,10 +481,19 @@ WITH replicas AS (
 SELECT * FROM replicas ORDER BY replica_localities;
 ```
 
+# Optional:  geolocate nodes
+```sql
+SET allow_unsafe_internals = true;
+INSERT into system.locations VALUES ('region', 'azure-southeastasia', 1.28967, 103.85007);
+INSERT into system.locations VALUES ('region', 'azure-eastus', 33.836082, -81.163727);
+INSERT into system.locations VALUES ('region', 'azure-uksouth', 51.509865, -0.118092);
+```
+
+
 Open UI
 
 ```sh
-open "http://${CRDB_IP_EU}:8080"
+open "http://${CRDB_IP_EU}:8080/#/overview/map"
 ```
 
 ### Debugging
@@ -491,6 +511,7 @@ for CTX in "${CTXS[@]}"; do
   helm uninstall external-dns -n external-dns --kube-context $CTX &
 done
 wait
+ 
 
 for CTX in "${CTXS[@]}"; do
   helm uninstall cockroachdb -n cockroach-ns --kube-context $CTX &
