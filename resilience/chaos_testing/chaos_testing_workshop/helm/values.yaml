@@ -1,0 +1,35 @@
+cockroachdb:
+  tls:
+    enabled: false
+    selfSigner:
+      enabled: false
+      caProvided: false
+      caSecret: cockroachdb-ca-secret
+  crdbCluster:
+    image:
+      name: cockroachdb/cockroach:v26.2.0
+    service:
+      public:
+        type: LoadBalancer
+    regions:
+      - code: local
+        nodes: 3
+        cloudProvider: gcp
+        namespace: cockroach-ns
+    dataStore:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    walFailoverSpec:
+      status: "enable"
+      size: "1Gi"
+      path: "/cockroach/cockroach-failover"
+    localityMappings:
+      - nodeLabel: "topology.kubernetes.io/region"
+        localityLabel: "region"
+      - nodeLabel: "topology.kubernetes.io/zone"
+        localityLabel: "zone"

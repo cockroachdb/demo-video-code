@@ -1,0 +1,24 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: crdb-asymmetric-partition
+  namespace: chaos-mesh
+spec:
+  action: partition
+  mode: one
+  duration: 1h
+  selector:
+    namespaces: [cockroach-ns]
+    labelSelectors:
+      "app.kubernetes.io/component": cockroachdb
+    nodeSelectors:
+      "topology.kubernetes.io/zone": a
+  direction: to
+  target:
+    mode: one
+    selector:
+      namespaces: [cockroach-ns]
+      labelSelectors:
+        "app.kubernetes.io/component": cockroachdb
+      nodeSelectors:
+        "topology.kubernetes.io/zone": b

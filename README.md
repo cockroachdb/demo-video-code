@@ -40,3 +40,4 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
 
 * Resilience
   * [Chaos Testing](resilience/chaos_testing/README.md)
+  * [Chaos Testing Workshop](resilience/chaos_testing/chaos_testing_workshop/README.md)

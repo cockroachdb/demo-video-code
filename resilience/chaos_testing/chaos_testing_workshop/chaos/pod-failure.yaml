@@ -1,0 +1,13 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: crdb-pod-failure
+  namespace: chaos-mesh
+spec:
+  action: pod-failure
+  mode: one
+  duration: 1h
+  selector:
+    namespaces: [cockroach-ns]
+    labelSelectors:
+      "app.kubernetes.io/component": cockroachdb
