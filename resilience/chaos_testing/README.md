@@ -39,10 +39,18 @@ helm install chaos-mesh chaos-mesh/chaos-mesh \
 kubectl wait --for=condition=Ready pods --all -n chaos-mesh --timeout=300s
 ```
 
-Run app
+Create objects and seed data
 
 ```sh
-cockroach sql --insecure -f resilience/chaos_testing/workload/create.sql
+edg up \
+--config resilience/chaos_testing/workload/payments.edg \
+--url "postgres://root@localhost:26257?sslmode=disable" \
+--driver pgx
+
+edg seed \
+--config resilience/chaos_testing/workload/payments.edg \
+--url "postgres://root@localhost:26257?sslmode=disable" \
+--driver pgx
 ```
 
 # Demo starts here
@@ -50,14 +58,11 @@ cockroach sql --insecure -f resilience/chaos_testing/workload/create.sql
 Run workload
 
 ```sh
-drk \
+edg run \
+--config resilience/chaos_testing/workload/payments.edg \
 --url "postgres://root@localhost:26257?sslmode=disable" \
---config resilience/chaos_testing/workload/payments.yaml \
 --driver pgx \
---retries 10 \
---duration 1h \
---output table \
---clear
+--retries 10
 ```
 
 ### Chaos experiments

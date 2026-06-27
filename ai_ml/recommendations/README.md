@@ -1,67 +1,34 @@
 ### Prerequisites
 
 * [CockroachDB](https://www.cockroachlabs.com/docs/stable/install-cockroachdb-mac.html) >= v24.2.0
-* [dgs](https://github.com/codingconcepts/dgs) >= v0.0.7
+* [edg](https://edg.run)
 
 ### Setup
 
-Run CockroachDB v24.2 (cockroachbeta is my local v24.2 binary)
+Run CockroachDB
 
 ```sh
-cockroachbeta demo --insecure --no-example-database
+cockroach demo --insecure --no-example-database
 ```
 
-Create tables
-
-```sql
-CREATE TYPE gender AS ENUM ('male', 'female', 'trans-male', 'trans-female', 'non-binary');
-
-CREATE TABLE "customer" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "email" STRING NOT NULL,
-  
-  -- Columns that enable recommendations. Keep nullable so that if someone would
-  -- prefer not to share this information, they don't have to.
-  "gender" gender,
-  "date_of_birth" DATE,
-  "location" GEOMETRY,
-  "vec" VECTOR(6)
-);
-
-CREATE TABLE "product" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "name" STRING NOT NULL,
-  "price" DECIMAL NOT NULL
-);
-
-CREATE TABLE "purchase" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "customer_id" UUID NOT NULL REFERENCES customer("id"),
-  "total" DECIMAL NOT NULL,
-  "ts" TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE "purchase_item" (
-  "purchase_id" UUID NOT NULL REFERENCES purchase("id"),
-  "product_id" UUID NOT NULL REFERENCES product("id"),
-  "quantity" INT NOT NULL,
-
-  PRIMARY KEY ("purchase_id", "product_id")
-);
-```
-
-Generate data
+Create tables and generate data
 
 ```sh
-dgs gen data \
+edg up \
+--config ai_ml/recommendations/recommendations.edg \
 --url "postgres://root@localhost:26257?sslmode=disable" \
---config ai_ml/recommendations/dgs.yaml
+--driver pgx
+
+edg seed \
+--config ai_ml/recommendations/recommendations.edg \
+--url "postgres://root@localhost:26257?sslmode=disable" \
+--driver pgx
 ```
 
 Insert a known customer (man born on 1988-07-14 living in London)
 
 ```sh
-cockroachbeta sql \
+cockroach sql \
 --url "postgres://root@localhost:26257?sslmode=disable" \
 -f ai_ml/recommendations/known.sql
 ```

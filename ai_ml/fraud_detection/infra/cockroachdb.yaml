@@ -158,15 +158,15 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: cockroachdb
-          image: cockroachdb/cockroach:v25.3.0
+          image: cockroachdb/cockroach:v26.2.1
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: "8"
-              memory: "32Gi"
+              cpu: "1"
+              memory: "0.5Gi"
             limits:
-              cpu: "12"
-              memory: "48Gi"
+              cpu: "2"
+              memory: "1Gi"
           ports:
             - containerPort: 26257
               name: grpc

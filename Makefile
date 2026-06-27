@@ -15,21 +15,21 @@ endif
 #########################
 
 build_agent: validate_version validate_registry
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ./app/cmd/agents/agent ./app/cmd/agents
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ./ai_ml/fraud_detection/app/cmd/agents/agent ./ai_ml/fraud_detection/app/cmd/agents
 	@docker buildx build \
 		--platform linux/amd64 \
 		-t ${REGISTRY}:${VERSION}-amd64 \
 		--push \
-		./app/cmd/agents
+		./ai_ml/fraud_detection/app/cmd/agents
 	
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o ./app/cmd/agents/agent ./app/cmd/agents
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o ./ai_ml/fraud_detection/app/cmd/agents/agent ./ai_ml/fraud_detection/app/cmd/agents
 	@docker buildx build \
 		--platform linux/arm64 \
 		-t ${REGISTRY}:${VERSION}-arm64 \
 		--push  \
-		./app/cmd/agents
+		./ai_ml/fraud_detection/app/cmd/agents
 
-	@rm ./app/cmd/agents/agent
+	@rm ./ai_ml/fraud_detection/app/cmd/agents/agent
 
 	@docker buildx imagetools create \
 		-t ${REGISTRY}:${VERSION} \

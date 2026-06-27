@@ -1,3 +1,5 @@
+SET CLUSTER SETTING kv.rangefeed.enabled = 't';
+
 CREATE CHANGEFEED FOR TABLE "purchase"
 INTO "kafka://kafka.default.svc.cluster.local:29092"
 WITH

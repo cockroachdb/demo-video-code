@@ -11,7 +11,7 @@ Login to Oracle Container Registry
 docker login container-registry.oracle.com
 ```
 
-Install your favourite workload generator. This demo uses a generator from Rob Reid called [drk](https://github.com/codingconcepts/drk).
+Install your favourite workload generator. This demo uses a generator from Rob Reid called [edg](https://edg.run).
 
 Install [MOLT](https://www.cockroachlabs.com/docs/molt/molt-fetch#installation).
 
@@ -41,41 +41,27 @@ Connect to Oracle
 sqlplus system/password@"localhost:1521/defaultdb"
 ```
 
-Create objects
+Create user
 
 ```sql
 CREATE USER bank_svc IDENTIFIED BY password;
 GRANT CONNECT, RESOURCE, DBA TO bank_svc;
-
-CREATE TABLE bank_svc.account (
-  id NUMBER PRIMARY KEY,
-  balance DECIMAL(15, 2) NOT NULL
-);
-
-CREATE SEQUENCE bank_svc.account_seq START WITH 1 INCREMENT BY 1;
-
-CREATE OR REPLACE TRIGGER bank_svc.account_set_id 
-BEFORE INSERT ON bank_svc.account 
-FOR EACH ROW
-BEGIN
-  SELECT account_seq.NEXTVAL
-  INTO   :new.id
-  FROM   dual;
-END;
-/
 ```
 
 ### Demo
 
-Run workload
+Create objects and run workload
 
 ```sh
-drk \
---config migration/to_cockroachdb/from_oracle/oracle.drk.yaml \
+edg up \
+--config migration/to_cockroachdb/from_oracle/oracle.edg \
 --url "oracle://bank_svc:password@localhost:1521/defaultdb" \
---driver oracle \
---output table \
---clear
+--driver oracle
+
+edg run \
+--config migration/to_cockroachdb/from_oracle/oracle.edg \
+--url "oracle://bank_svc:password@localhost:1521/defaultdb" \
+--driver oracle
 ```
 
 Hop into container
@@ -216,7 +202,7 @@ ALTER SESSION SET CONTAINER = defaultdb;
 SELECT CURRENT_SCN FROM V$DATABASE;
 
 -- Apply the system change number (replacing the SCN accordingly)
-EXEC DBMS_LOGMNR.START_LOGMNR(STARTSCN => 1187969, OPTIONS  => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG);
+EXEC DBMS_LOGMNR.START_LOGMNR(STARTSCN => 1179522, OPTIONS  => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG);
 ```
 
 ### Cockroach side

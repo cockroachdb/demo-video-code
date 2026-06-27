@@ -1,0 +1,68 @@
+let accounts   = 10000
+let batch_size = 1000
+
+up {
+  enable_fortification `SET CLUSTER SETTING kv.raft.leader_fortification.fraction_enabled = 1`
+
+  create_account `CREATE TABLE IF NOT EXISTS account (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      balance DECIMAL NOT NULL
+    )`
+}
+
+seed {
+  populate_account `INSERT INTO account (balance)
+    SELECT 1000
+    FROM generate_series(1, $1)
+    RETURNING id` (accounts)
+}
+
+deseed {
+  truncate_account(type: exec) `TRUNCATE TABLE account`
+}
+
+down {
+  drop_account(type: exec) `DROP TABLE IF EXISTS account`
+}
+
+init {
+  fetch_accounts(type: query) `SELECT id FROM account ORDER BY random()`
+}
+
+weights {
+  make_transfer      = 60
+  receive_transfer   = 30
+  check_balance      = 10
+}
+
+stages {
+  main(workers: 1, duration: 24h, weights: {make_transfer: 40, receive_transfer: 30, check_balance: 10}, qps: 100)
+}
+
+run {
+  make_transfer(type: exec) `UPDATE account
+      SET balance = CASE
+        WHEN id = $1 THEN balance - $3
+        WHEN id = $2 THEN balance + $3
+      END
+    WHERE id IN ($1, $2)` (
+      ref_diff('fetch_accounts').id,
+      ref_diff('fetch_accounts').id,
+      gen('number:10,100')
+  )
+
+  receive_transfer(type: exec) `UPDATE account
+      SET balance = CASE
+        WHEN id = $1 THEN balance - $3
+        WHEN id = $2 THEN balance + $3
+      END
+    WHERE id IN ($1, $2)` (
+      ref_diff('fetch_accounts').id,
+      ref_diff('fetch_accounts').id,
+      gen('number:10,100')
+  )
+
+  check_balance(type: query) `SELECT balance FROM account WHERE id = $1` (
+      ref_rand('fetch_accounts').id
+  )
+}

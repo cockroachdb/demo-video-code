@@ -1,0 +1,94 @@
+let customers      = 100000
+let products       = 1000
+let purchases      = 200000
+let purchase_items = 250000
+let batch_size     = 5000
+
+up {
+  create_gender_type(type: exec) `CREATE TYPE IF NOT EXISTS gender AS ENUM ('male', 'female', 'trans-male', 'trans-female', 'non-binary')`
+
+  create_customer `CREATE TABLE IF NOT EXISTS customer (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email STRING NOT NULL,
+      gender gender,
+      date_of_birth DATE,
+      location GEOMETRY,
+      vec VECTOR(6)
+    )`
+
+  create_product `CREATE TABLE IF NOT EXISTS product (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name STRING NOT NULL,
+      price DECIMAL NOT NULL
+    )`
+
+  create_purchase `CREATE TABLE IF NOT EXISTS purchase (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      customer_id UUID NOT NULL REFERENCES customer(id),
+      total DECIMAL NOT NULL,
+      ts TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`
+
+  create_purchase_item `CREATE TABLE IF NOT EXISTS purchase_item (
+      purchase_id UUID NOT NULL REFERENCES purchase(id),
+      product_id UUID NOT NULL REFERENCES product(id),
+      quantity INT NOT NULL,
+      PRIMARY KEY (purchase_id, product_id)
+    )`
+}
+
+seed {
+  populate_customer(type: query_batch, count: customers, size: batch_size) `INSERT INTO customer (email, gender, date_of_birth, location)
+    __values__
+    RETURNING id` (
+      gen('email'),
+      set_rand(['male', 'female', 'trans-male', 'trans-female', 'non-binary'], [47, 47, 0.1, 0.1, 0.06]),
+      date('2006-01-02T15:04:05Z07:00', '1950-01-01T00:00:00+00:00', '2006-01-21T00:00:00+00:00'),
+      point_wkt(51.04284752235447, -0.8911379425829405, 20000)
+  )
+
+  populate_product(type: query_batch, count: products, size: batch_size) `INSERT INTO product (name, price)
+    __values__
+    RETURNING id` (
+      gen('productname'),
+      gen('number:1,100')
+  )
+
+  populate_purchase(type: query_batch, count: purchases, size: batch_size) `INSERT INTO purchase (customer_id, total, ts)
+    __values__
+    RETURNING id` (
+      ref_rand('populate_customer').id,
+      gen('number:1,1000'),
+      date('2006-01-02T15:04:05Z07:00', '2014-08-01T01:00:00+01:00', '2024-07-29T01:00:00+01:00')
+  )
+
+  populate_purchase_item(type: exec_batch, count: purchase_items, size: batch_size) `INSERT INTO purchase_item (purchase_id, product_id, quantity)
+    __values__
+    ON CONFLICT DO NOTHING` (
+      ref_rand('populate_purchase').id,
+      ref_rand('populate_product').id,
+      gen('number:1,5')
+  )
+}
+
+deseed {
+  truncate_purchase_item(type: exec) `TRUNCATE TABLE purchase_item`
+
+  truncate_purchase(type: exec) `TRUNCATE TABLE purchase`
+
+  truncate_product(type: exec) `TRUNCATE TABLE product CASCADE`
+
+  truncate_customer(type: exec) `TRUNCATE TABLE customer CASCADE`
+}
+
+down {
+  drop_purchase_item(type: exec) `DROP TABLE IF EXISTS purchase_item`
+
+  drop_purchase(type: exec) `DROP TABLE IF EXISTS purchase`
+
+  drop_product(type: exec) `DROP TABLE IF EXISTS product`
+
+  drop_customer(type: exec) `DROP TABLE IF EXISTS customer`
+
+  drop_gender_type(type: exec) `DROP TYPE IF EXISTS gender`
+}

@@ -1,7 +1,6 @@
 ### Dependencies
 
-* [dgs](https://github.com/codingconcepts/dgs) - a YAML-configured data generator.
-* [drk](https://github.com/codingconcepts/drk) - a YAML-configured workload generator.
+* [edg](https://edg.run) - a DSL-configured data and workload generator.
 * [kubetail](https://github.com/johanhaleby/kubetail) - a Kubernetes log aggregator.
 
 ### Prerequisites
@@ -48,7 +47,7 @@ rm openai-api-key.txt
 Components
 
 ```sh
-kubectl apply -f ai_ml/fraud_detection/infra/pulsar.yaml
+kubectl apply -f ai_ml/fraud_detection/infra/kafka.yaml
 kubectl apply -f ai_ml/fraud_detection/infra/cockroachdb.yaml
 
 kubectl wait --for=jsonpath='{.status.phase}'=Running pods --all -n crdb --timeout=300s
@@ -72,20 +71,18 @@ done
 
 ### Demo
 
-Objects
+Objects and seed data
 
 ```sh
-cockroach sql --host ${CRDB_IP} --insecure -f ai_ml/fraud_detection/db/create.sql
-```
-
-Insert purchase history
-
-```sh
-dgs gen data \
---config ai_ml/fraud_detection/app/cmd/workload/dgs.yaml \
+edg up \
+--config ai_ml/fraud_detection/app/cmd/workload/fraud_detection.edg \
 --url "postgres://root@${CRDB_IP}:26257?sslmode=disable" \
---workers 4 \
---batch 100
+--driver pgx
+
+edg seed \
+--config ai_ml/fraud_detection/app/cmd/workload/fraud_detection.edg \
+--url "postgres://root@${CRDB_IP}:26257?sslmode=disable" \
+--driver pgx
 ```
 
 Hop onto shell
@@ -123,13 +120,13 @@ INSERT INTO purchase(customer_id, amount, location, ts)
 Create changefeeds
 
 ```sh
-cockroach sql --host ${CRDB_IP} --insecure -f ai_ml/fraud_detection/db/changefeeds.sql
+cockroach sql --host ${CRDB_IP} --insecure -f ai_ml/fraud_detection/data/changefeeds.sql
 ```
 
 Build and push the agent images. NB: This is just a step for me (Rob Reid).
 
 ```sh
-VERSION=v0.12.0 make build_agents_all
+VERSION=v0.13.0 REGISTRY=codingconcepts/large-scale-agentic make build_agent
 ```
 
 Deploy the agents
@@ -153,12 +150,10 @@ Explain:
 Run workload to simulate regular purchases
 
 ```sh
-drk \
---driver pgx \
+edg run \
+--config ai_ml/fraud_detection/app/cmd/workload/fraud_detection.edg \
 --url "postgres://root@${CRDB_IP}:26257?sslmode=disable" \
---config ai_ml/fraud_detection/app/cmd/workload/drk.yaml \
---output table \
---verbose
+--driver pgx
 ```
 
 > Observe no anomalous purchases
@@ -191,7 +186,7 @@ Open UI
 open "http://${CRDB_IP}:8080"
 ```
 
-Ramp up drk workload with monitoring between each step
+Ramp up edg workload with monitoring between each step
 
 * 10 -> 50
 * 50 -> 100

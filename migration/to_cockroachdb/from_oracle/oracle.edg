@@ -1,0 +1,74 @@
+up {
+  create_account(type: exec) `BEGIN
+      EXECUTE IMMEDIATE '
+        CREATE TABLE account (
+          id NUMBER PRIMARY KEY,
+          balance DECIMAL(15, 2) NOT NULL
+        )
+      ';
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLCODE != -955 THEN RAISE; END IF;
+    END;`
+
+  create_sequence(type: exec) `BEGIN
+      EXECUTE IMMEDIATE '
+        CREATE SEQUENCE account_seq START WITH 1 INCREMENT BY 1
+      ';
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLCODE != -2289 THEN RAISE; END IF;
+    END;`
+
+  create_trigger(type: exec) `BEGIN
+      EXECUTE IMMEDIATE '
+        CREATE OR REPLACE TRIGGER account_set_id
+        BEFORE INSERT ON account
+        FOR EACH ROW
+        BEGIN
+          SELECT account_seq.NEXTVAL
+          INTO :new.id
+          FROM dual;
+        END;
+      ';
+    END;`
+}
+
+deseed {
+  truncate_account(type: exec) `TRUNCATE TABLE account`
+}
+
+down {
+  drop_account(type: exec) `BEGIN
+      EXECUTE IMMEDIATE 'DROP TABLE account CASCADE CONSTRAINTS PURGE';
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLCODE != -942 THEN RAISE; END IF;
+    END;`
+}
+
+init {
+  fetch_accounts(type: query) `SELECT id FROM account ORDER BY DBMS_RANDOM.RANDOM`
+}
+
+stages {
+  main(workers: 1, duration: 24h, weights: {register_customer: 20, check_balance: 40, make_transfer: 40}, qps: 100)
+}
+
+run {
+  register_customer(type: exec) `INSERT INTO account (balance) VALUES (:1)` (
+      gen('number:1000,100000')
+  )
+
+  check_balance(type: query) `SELECT balance FROM account WHERE id = :1 FETCH FIRST 1 ROW ONLY` (
+      ref_rand('fetch_accounts').id
+  )
+
+  make_transfer(type: exec) `UPDATE account SET
+      balance = CASE
+                  WHEN id = :1 THEN balance - :3
+                  WHEN id = :2 THEN balance + :3
+                END
+    WHERE id IN (:1, :2)` (
+      ref_diff('fetch_accounts').id,
+      ref_diff('fetch_accounts').id,
+      gen('number:10,100')
+  )
+}

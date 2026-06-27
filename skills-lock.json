@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "edg-config": {
+      "source": "codingconcepts/edg-skills",
+      "sourceType": "github",
+      "skillPath": "skills/edg-config/SKILL.md",
+      "computedHash": "38a74687ed974424dbc031618a175068e31d6bb3938e14c883ec768df768f0ff"
+    },
+    "edg-expression": {
+      "source": "codingconcepts/edg-skills",
+      "sourceType": "github",
+      "skillPath": "skills/edg-expression/SKILL.md",
+      "computedHash": "718d2dbb282e9822ec8dbe0a5f40bd9dce9a93c3cb263774767c584783cf57e9"
+    },
+    "edg-migrate": {
+      "source": "codingconcepts/edg-skills",
+      "sourceType": "github",
+      "skillPath": "skills/edg-migrate/SKILL.md",
+      "computedHash": "b2c3ec0b8e348e40f9a64b453471b06c6e8078d717a54343e9123038518e7c39"
+    },
+    "edg-validate": {
+      "source": "codingconcepts/edg-skills",
+      "sourceType": "github",
+      "skillPath": "skills/edg-validate/SKILL.md",
+      "computedHash": "16cbed1a277ac23347fc10d7974e74d9d329fc6208e1697a62b05fff4ffe4350"
+    }
+  }
+}
