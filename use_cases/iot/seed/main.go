@@ -61,6 +61,7 @@ func mustClear(db *pgxpool.Pool) {
 
 type aircraft struct {
 	id               string
+	category         string
 	model            string
 	capacity         int
 	rangeKM          int
@@ -73,21 +74,29 @@ func mustPopulateAircraft(db *pgxpool.Pool) []aircraft {
 
 	stmt := `INSERT INTO aircraft (
 					   id,
+						 category,
 						 model,
 						 capacity,
 						 range_km,
 						 base,
 						 operational_since
-					 ) VALUES ($1, $2, $3, $4, $5, $6)`
+					 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	var aircraft []aircraft
 	batch := pgx.Batch{}
 	for i := 0; i < 50; i++ {
 		a := randomAircraft()
+		switch i {
+		case 0:
+			a = coolPlane()
+		case 1:
+			a = ufo()
+		}
 
 		batch.Queue(
 			stmt,
 			a.id,
+			a.category,
 			a.model,
 			a.capacity,
 			a.rangeKM,
@@ -162,9 +171,12 @@ func mustPopulateAircraftDiagnostics(db *pgxpool.Pool, aircraft []aircraft) {
 	batch := pgx.Batch{}
 	for _, a := range aircraft {
 		d := randomAircraftDiagnostics()
+		if a.category == "cool_plane" {
+			d.lat, d.heading = 35, 90
+		}
 
 		batch.Queue(
-			fmt.Sprintf(stmtFmt, d.lat, d.lon),
+			fmt.Sprintf(stmtFmt, d.lon, d.lat),
 			a.id,
 			d.batteryLevel,
 			d.heading,
@@ -181,23 +193,62 @@ func mustPopulateAircraftDiagnostics(db *pgxpool.Pool, aircraft []aircraft) {
 	fmt.Println("populated aircraft diagnostics")
 }
 
+type aircraftType struct {
+	category string
+	models   []string
+	capacity [2]int
+	rangeKM  [2]int
+}
+
+var aircraftTypes = []aircraftType{
+	{"fixed_wing", []string{"Fixed-wing transport", "Fixed-wing cargo", "Fixed-wing ISR"}, [2]int{20, 120}, [2]int{3000, 9000}},
+	{"helicopter", []string{"Utility helicopter", "Medevac helicopter", "Heavy-lift helicopter"}, [2]int{4, 30}, [2]int{400, 900}},
+	{"drone", []string{"Small UAS", "Medium UAS", "Long-endurance UAS"}, [2]int{0, 1}, [2]int{50, 3000}},
+}
+
 func randomAircraft() aircraft {
+	t := lo.Sample(aircraftTypes)
 	return aircraft{
 		id:               uuid.NewString(),
-		model:            lo.Sample([]string{"A220", "A300", "A310", "A320", "A330", "A340", "A350", "A380"}),
-		capacity:         rand.Intn(500-50) + 50,
-		rangeKM:          rand.Intn(15000-5000) + 5000,
+		category:         t.category,
+		model:            lo.Sample(t.models),
+		capacity:         t.capacity[0] + rand.Intn(t.capacity[1]-t.capacity[0]+1),
+		rangeKM:          t.rangeKM[0] + rand.Intn(t.rangeKM[1]-t.rangeKM[0]+1),
 		base:             lo.Sample([]string{"LAX", "IAD", "LHR", "CDG", "SIN", "BOM"}),
 		operationalSince: gofakeit.DateRange(time.Now().Add(-time.Hour*87600), time.Now()),
+	}
+}
+
+func ufo() aircraft {
+	return aircraft{
+		id:               uuid.NewString(),
+		category:         "ufo",
+		model:            "Unidentified",
+		capacity:         0,
+		rangeKM:          999999,
+		base:             "???",
+		operationalSince: time.Date(1947, time.July, 8, 0, 0, 0, 0, time.UTC),
+	}
+}
+
+func coolPlane() aircraft {
+	return aircraft{
+		id:               uuid.NewString(),
+		category:         "cool_plane",
+		model:            "Cool Plane (SR-71)",
+		capacity:         2,
+		rangeKM:          5400,
+		base:             "LAX",
+		operationalSince: time.Date(1966, time.January, 7, 0, 0, 0, 0, time.UTC),
 	}
 }
 
 func randomAircraftDiagnostics() aircraftDiagnostics {
 	return aircraftDiagnostics{
 		batteryLevel: 100,
-		lat:          gofakeit.Latitude(),
+		lat:          gofakeit.Float64Range(-45, 60),
 		lon:          gofakeit.Longitude(),
-		heading:      rand.Intn(360),
+		heading:      lo.Sample([]int{90, 270}) + rand.Intn(51) - 25,
 	}
 }
 

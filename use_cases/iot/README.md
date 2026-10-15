@@ -1,18 +1,37 @@
 ### Demo Areas
 
 * Multi-region
-  * GLOBAL TABLE for basic fleet information
-  * REGIONAL TABLE for fleet management
-  * REGIONAL BY ROW table for fleet diagnostics
-* Auto rehoming for diagnostics between regions
-* Partial indexes to ignore old data
+  * GLOBAL TABLE for basic fleet information (`aircraft`)
+  * REGIONAL BY TABLE for fleet management (`aircraft_administration`, pinned to the primary region)
+  * REGIONAL BY ROW table for fleet diagnostics (`aircraft_diagnostics`)
+* Rows move between regions automatically as aircraft fly, because `crdb_region` is computed from each aircraft's longitude
+* Survival goals: zone (fast local writes) vs region (survives losing a whole region)
+* Node and region failure with live leaseholder movement
 
 ### Scenarios
 
-* eVTOL aircraft flying in multiple regions
-* eVTOL aircraft flying _between_ regions
+* A mixed fleet (fixed-wing, helicopters, UAS, plus a "Cool Plane" and a hidden UFO) flying in multiple regions
+* Aircraft flying _between_ regions, with their data following them
+* Killing nodes and whole regions while the fleet keeps reporting
 
-### Steps
+### Run it locally (booth setup)
+
+The current way to run this demo is a local 9-node cluster with simulated WAN latency between three regions, plus a map with cluster controls. See **[BOOTH-RUNBOOK.md](BOOTH-RUNBOOK.md)** for setup, the demo flow, talk track, recovery steps and shutdown.
+
+Quick start, once the cluster is set up:
+
+``` sh
+(cd iot/cluster && docker-compose -f docker-compose.latency.yml up -d)
+iot/run.sh start
+open iot/app/index.html
+```
+
+The local schema is `iot/setup.sql`. It uses the cluster's region names (`region_1` = US, `region_2` = EU, `region_3` = AP) rather than the `aws-*` names below, and has no super regions (single-region super regions block `SURVIVE REGION FAILURE`).
+
+### Original cloud steps
+
+The steps below are the original Fly.io and CockroachDB Cloud deployment. They still use the `aws-*` region names and the earlier single-node-per-region `cockroach demo` setup. The table DDL below is out of date for the current app, which also needs the `category` column and the `demo_settings` table: use `iot/setup.sql` (with your cluster's region names) instead.
+
 
 Apply API key
 
