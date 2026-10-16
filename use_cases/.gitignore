@@ -1,0 +1,27 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+
+# Secrets
+.env
+
+# Fly.io
+**/app/go.*
+
+# Generated data
+**/csvs/
+
+# Sensitive stuff
+*.crt
