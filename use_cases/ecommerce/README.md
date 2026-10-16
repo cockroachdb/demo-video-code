@@ -62,14 +62,14 @@ cockroach demo \
 Create cluster (Cloud - Terraform)
 
 ``` sh
-(cd _database/basic && terraform apply -var-file="ecommerce.tfvars" --auto-approve)
+(cd use_cases/_database/basic && terraform apply -var-file="ecommerce.tfvars" --auto-approve)
 
 # Export to all terminals.
-export SHELL_URL=$(cd _database/basic && terraform output -raw shell_url)
-export DATABASE_URL=$(cd _database/basic && terraform output -raw ecommerce_app_url)
-export DATABASE_URL_EU=$(cd _database/basic && terraform output -raw ecommerce_app_url_eu)
-export DATABASE_URL_US=$(cd _database/basic && terraform output -raw ecommerce_app_url_us)
-export DATABASE_URL_AP=$(cd _database/basic && terraform output -raw ecommerce_app_url_ap)
+export SHELL_URL=$(cd use_cases/_database/basic && terraform output -raw shell_url)
+export DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw ecommerce_app_url)
+export DATABASE_URL_EU=$(cd use_cases/_database/basic && terraform output -raw ecommerce_app_url_eu)
+export DATABASE_URL_US=$(cd use_cases/_database/basic && terraform output -raw ecommerce_app_url_us)
+export DATABASE_URL_AP=$(cd use_cases/_database/basic && terraform output -raw ecommerce_app_url_ap)
 ```
 
 Create database objects (remote)
@@ -94,7 +94,7 @@ cockroach sql --url $DATABASE_URL_EU
 > The whole thing can be run as one.
 
 ``` sh
-fly app create crdb-ecommerce --org crl-devrel
+fly app create crdb-ecommerce --org your-fly-org
 
 fly secrets set \
   --app crdb-ecommerce \
@@ -220,5 +220,5 @@ edg down --config ecommerce/data/database.edg --url $SHELL_URL
 CockroachDB infra
 
 ``` sh
-(cd _database/basic && terraform destroy -var-file="ecommerce.tfvars" --auto-approve)
+(cd use_cases/_database/basic && terraform destroy -var-file="ecommerce.tfvars" --auto-approve)
 ```

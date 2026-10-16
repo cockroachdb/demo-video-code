@@ -46,14 +46,14 @@ cockroach demo \
 Create cluster (Cloud)
 
 ``` sh
-(cd _database/basic && terraform init)
-(cd _database/basic && terraform apply --var-file iam.tfvars --auto-approve)
+(cd use_cases/_database/basic && terraform init)
+(cd use_cases/_database/basic && terraform apply --var-file iam.tfvars --auto-approve)
 ```
 
 Connect to cluster
 
 ``` sh
-cockroach sql --url $(cd _database/basic && terraform output -raw shell_url)
+cockroach sql --url $(cd use_cases/_database/basic && terraform output -raw shell_url)
 ```
 
 Create database
@@ -152,11 +152,11 @@ JWT_SECRET=$JWT_SECRET \
 ### Deploy service
 
 ``` sh
-fly app create crdb-iam --org crl-devrel
+fly app create crdb-iam --org your-fly-org
 
 fly secrets set \
   --app crdb-iam \
-  DATABASE_URL=$(cd _database/basic && terraform output -raw iam_app_url)
+  DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw iam_app_url)
 
 fly secrets set \
   --app crdb-iam \
@@ -365,5 +365,5 @@ DROP DATABASE iam;
 Cluster
 
 ``` sh
-(cd _database/basic && terraform destroy --var-file iam.tfvars --auto-approve)
+(cd use_cases/_database/basic && terraform destroy --var-file iam.tfvars --auto-approve)
 ```

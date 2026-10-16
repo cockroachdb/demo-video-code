@@ -5,39 +5,6 @@
 * Data pinning to help with regulatory compliance
 * Rehoming for users moving between locations
 
-### Differentiators
-
-* Resilience - takes care of the database side of "always on" or "zero downtime"
-
-* Scalability - it allows you to scale as your user base grows, you simply add more nodes to the cluster
-  * [1s of internet activity](https://www.zettasphere.com/mind-boggling-stats-for-1-second-of-internet-activity/)
-    * Given how easy it is to scale out a CockroachDB cluster, scaling is simply a numbers game
-    * 9 node cluster to handle 5,800 tweets/s
-    * 27 node cluster to handle 55,000 facebook posts/s
-    * 54 node cluster to handle 740,741 whatsapp messages/s
-    * Some of our customers are running larger clusters for some of the world's most interesting use cases
-  * Adding nodes means gaining both read and *write* capacity
-
-* Consistency - these are table stakes for any use case, and user accounts and metadata is no different
-
-* Online schema changes - add new features to your application *during business hours* when your team is available.
-  * You can move much quicker if the changes you're making and features you're adding aren't breaking things.
-  * No one likes maintenance windows and that includes your users
-
-* Multi-region data placement - create policies to ensure that user data stays local to them
-  * This helps you comply with regulations
-  * Keeps read and write latencies for all users low
-
-* Security
-  * In any system that handles user information, security is critical
-  * We've seen from all too many data breaches, the impact of not adequately protecting user data
-  * CockroachDB's
-    * Encryption at rest, encryption in-flight
-    * SSO, MFA, RBAC
-    * CMEKs
-    * Egress perimeter controls
-    * ...all work to protect your users' data
-
 ### Scenarios
 
 * Register
@@ -66,14 +33,14 @@ cockroach demo \
 Create cluster (Cloud)
 
 ``` sh
-(cd _database/basic && terraform init)
-(cd _database/basic && terraform apply --auto-approve)
+(cd use_cases/_database/basic && terraform init)
+(cd use_cases/_database/basic && terraform apply --auto-approve)
 ```
 
 Connect to cluster
 
 ``` sh
-cockroach sql --url $(cd _database/basic && terraform output -raw shell_url)
+cockroach sql --url $(cd use_cases/_database/basic && terraform output -raw shell_url)
 ```
 
 Create database
@@ -124,11 +91,11 @@ CREATE TABLE user_profile (
 Deploy service (Cloud)
 
 ``` sh
-fly app create crdb-user-accounts --org crl-devrel
+fly app create crdb-user-accounts --org your-fly-org
 
 fly secrets set \
   --app crdb-user-accounts \
-  DATABASE_URL=$(cd _database/basic && terraform output -raw user_accounts_app_url)
+  DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw user_accounts_app_url)
 
 cp go.* user_accounts/app
 (cd user_accounts/app && fly deploy --ha=false)
@@ -147,7 +114,7 @@ DATABASE_URL="postgres://root@localhost:26257/accounts?sslmode=disable" \
 Test local service (Cloud)
 
 ``` sh
-DATABASE_URL=$(cd _database/basic && terraform output -raw user_accounts_app_url) \
+DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw user_accounts_app_url) \
   go run user_accounts/app/main.go
 ```
 
@@ -277,5 +244,5 @@ DROP DATABASE accounts;
 Cluster
 
 ``` sh
-(cd _database/basic && terraform destroy --auto-approve)
+(cd use_cases/_database/basic && terraform destroy --auto-approve)
 ```

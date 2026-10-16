@@ -52,14 +52,14 @@ cockroach demo \
 Create cluster (Cloud)
 
 ``` sh
-(cd _database/basic && terraform init)
-(cd _database/basic && terraform apply --auto-approve)
+(cd use_cases/_database/basic && terraform init)
+(cd use_cases/_database/basic && terraform apply --auto-approve)
 ```
 
 Connect to cluster
 
 ``` sh
-cockroach sql --url $(cd _database/basic && terraform output -raw shell_url)
+cockroach sql --url $(cd use_cases/_database/basic && terraform output -raw shell_url)
 ```
 
 Create database
@@ -136,18 +136,18 @@ DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" \
 Seed deployed database
 
 ``` sh
-DATABASE_URL=$(cd _database/basic && terraform output -raw iot_app_url) \
+DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw iot_app_url) \
   go run iot/seed/main.go
 ```
 
 ### Deploy service
 
 ``` sh
-fly app create crdb-iot --org crl-devrel
+fly app create crdb-iot --org your-fly-org
 
 fly secrets set \
   --app crdb-iot \
-  DATABASE_URL=$(cd _database/basic && terraform output -raw iot_app_url)
+  DATABASE_URL=$(cd use_cases/_database/basic && terraform output -raw iot_app_url)
 
 cp go.* iot/app
 (cd iot/app && fly deploy --ha=false)
@@ -258,5 +258,5 @@ DROP DATABASE iot;
 Cluster
 
 ``` sh
-(cd _database/basic && terraform destroy --auto-approve)
+(cd use_cases/_database/basic && terraform destroy --auto-approve)
 ```

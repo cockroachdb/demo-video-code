@@ -20,54 +20,11 @@
   b. Issues a challenge to the customer
   c. Rejects the payment
 
-### Differentiators
-
-* Security
-  * Payment information is among the most sensitive information out there
-    * If leaked, it's disasterous for reputation but also for the people whose data has been leaked
-  * Our Advanced-tier cloud offering allows you to run in a PCI-compliant way
-    * Ensuring sensitive data never gets into the wrong hands
-    * Allowing you to run your application with confidence
-
-* Resilience
-  * Payment processors and gateways are critical systems. Tier-0
-    * The kinds of systems that - if they stop working - not only businesses but countries stop working
-  * You'll need to be not only resilient to datacenter or AZ failures
-    * ...but also regional failures at this point
-    * ...and your data and applications need to remain online in spite of them
-  * DORA (the digital operational resilience act) requires you to be resilient
-
-* Zero downtime
-  * Maintenance windows for upgrades, patches, machines repaves, and schema changes
-    * ...can't result in downtime
-
-* Scalability
-  * Payment systems are often write-heavy
-    * You need a database that scales as well for writes as it does reads
-  * The scaling of a traditional RDBMS by way of sharding, is nasty enough
-    * Let alone trying to do it for a payments use case
-  * Scaling needs to be done online, without downtime
-
-* Consistency
-  * Payments need to be 100% correct 100% of the time - if they're not, money goes missing
-  * Accounts need to balance - if they don't, money goes missing
-  * Historically, companies needing large scale having opted for NoSQL databases
-    * ...and have had to code around and defend against eventual consistency
-    * With CockroachDB, you get guaranteed consistency **and** the ability to scale
-
-* Event-based architecture and integrations
-  * Payment systems will often integrate with many other systems
-    * Fraud detection
-    * Clearing
-    * Authoriation
-    * ...and any additional processing
-  * CockroachDB's built-in change data capture (CDC) offers a transactionally consistent integration point for these
-
-# Local
+### Local
 
 **5 terminal windows**
 
-# Cloud
+### Cloud
 
 **2 terminal windows**
 
@@ -124,8 +81,8 @@ export ACCOUNT_ID=$(cd _database/advanced && terraform output -raw account_id)
 **The following may need to be applied a few times**
 
 ``` sh
-(cd payments/infra && terraform init)
-(cd payments/infra && terraform apply \
+(cd use_cases/payments/infra && terraform init)
+(cd use_cases/payments/infra && terraform apply \
   -var cockroach_cluster_account_id=${ACCOUNT_ID} \
   -var cockroach_cluster_id=${CLUSTER_ID})
 ```
@@ -401,7 +358,7 @@ DROP DATABASE payment;
 AWS infra
 
 ``` sh
-(cd payments/infra && terraform destroy \
+(cd use_cases/payments/infra && terraform destroy \
   -var cockroach_cluster_account_id=$ACCOUNT_ID \
   -var cockroach_cluster_id=$CLUSTER_ID)
 ```

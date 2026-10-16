@@ -101,7 +101,7 @@ cockroach sql --url ${EU_URL} -f cloud/standard/asymmetric-workloads/create.sql
 Deploy workload (fly.io)
 
 ```sh
-fly app create crdb-asymmetric-workload --org crl-devrel
+fly app create crdb-asymmetric-workload --org your-fly-org
 
 fly secrets set --app crdb-asymmetric-workload \
 CONNECTION_STRING=${GLOBAL_URL} \
