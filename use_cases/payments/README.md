@@ -133,7 +133,7 @@ export ACCOUNT_ID=$(cd _database/advanced && terraform output -raw account_id)
 Download the certificate
 
 ``` sh
-curl --create-dirs -o $HOME/Library/CockroachCloud/certs/562b7548-fc68-4111-8204-4d8356a31dd2/crdb-use-cases-ca.crt "https://cockroachlabs.cloud/clusters/$CLUSTER_ID/cert"
+curl --create-dirs -o $HOME/Library/CockroachCloud/certs/$CLUSTER_ID/crdb-use-cases-ca.crt "https://cockroachlabs.cloud/clusters/$CLUSTER_ID/cert"
 ```
 
 Connect to cluster

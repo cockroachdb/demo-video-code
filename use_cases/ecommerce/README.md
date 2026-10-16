@@ -151,7 +151,7 @@ REGION="aws-eu-central-1" \
 Create known values
 
 ``` sql
-INSERT INTO customer (id, email) VALUES ('359a6ed4-8537-473d-a8a7-9b917220c436', 'rob@cockroachlabs.com');
+INSERT INTO customer (id, email) VALUES ('359a6ed4-8537-473d-a8a7-9b917220c436', 'rob@example.com');
 
 INSERT INTO product (id, name) VALUES ('a5d075a0-15a8-4de2-bb08-b4a3b79ddc1e', 'a');
 INSERT INTO product (id, name) VALUES ('be91f369-684c-4126-802d-50eba42fcc0c', 'b');
