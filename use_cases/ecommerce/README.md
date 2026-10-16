@@ -74,18 +74,17 @@ export DATABASE_URL_AP=$(cd _database/basic && terraform output -raw ecommerce_a
 
 Create database objects (remote)
 
+> The database itself has to be created from a connection to `defaultdb`,
+> hence the two configs. `store.edg` imports `ddl.edg`, so there's no need to
+> run `ddl.edg` separately.
+
 ``` sh
-cockroach sql --url $SHELL_URL \
-  -f ecommerce/0_database.sql
+# Database, regions, and super regions.
+edg up --config ecommerce/data/database.edg --url $SHELL_URL
 
-cockroach sql --url $DATABASE_URL_EU \
-  -f ecommerce/1_tables.sql
-
-cockroach sql --url $DATABASE_URL_EU \
-  -f ecommerce/2_functions.sql
-
-cockroach sql --url $DATABASE_URL_EU \
-  -f ecommerce/3_data.sql
+# Tables, functions, and data.
+edg up   --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+edg seed --config ecommerce/data/store.edg --url $DATABASE_URL_EU
 
 cockroach sql --url $DATABASE_URL_EU
 ```
@@ -209,10 +208,13 @@ fly app delete crdb-ecommerce -y
 
 Database
 
-``` sql
-USE defaultdb;
-SET sql_safe_updates = false;
-DROP DATABASE store;
+``` sh
+# Data and schema only.
+edg deseed --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+edg down   --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+
+# Or the whole database.
+edg down --config ecommerce/data/database.edg --url $SHELL_URL
 ```
 
 CockroachDB infra
