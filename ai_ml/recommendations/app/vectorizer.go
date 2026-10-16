@@ -33,6 +33,7 @@ var (
 
 func main() {
 	databaseURL := flag.String("database-url", "", "url to the database")
+
 	flag.Parse()
 
 	if *databaseURL == "" {
@@ -66,6 +67,7 @@ func vectorize(db *pgxpool.Pool) error {
 		if err != nil {
 			return fmt.Errorf("fetching customers: %w", err)
 		}
+
 		fmt.Printf("fetched %d customers\n", len(customers))
 
 		if len(customers) == 0 {
@@ -97,11 +99,14 @@ func fetchCustomers(db *pgxpool.Pool, limit int) ([]customer, error) {
 		if err == pgx.ErrNoRows {
 			return []customer{}, nil
 		}
+
 		return nil, fmt.Errorf("querying: %w", err)
 	}
 
-	var customers []customer
-	var c customer
+	var (
+		customers []customer
+		c         customer
+	)
 	for rows.Next() {
 		err = rows.Scan(&c.id, &c.gender, &c.dateOfBirth, &c.lat, &c.lon)
 		if err != nil {
@@ -129,6 +134,7 @@ func updateCustomers(db *pgxpool.Pool, customers []customer, weightings []float3
 	}
 
 	_, err = conn.SendBatch(context.Background(), batch).Exec()
+
 	return err
 }
 

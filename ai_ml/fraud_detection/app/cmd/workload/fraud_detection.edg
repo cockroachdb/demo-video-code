@@ -319,12 +319,12 @@ seed {
     RETURNING id` (
       gen('email'),
       gen('phone'),
-      set_rand(['email', 'sms'], [80, 20])
+      set(['email', 'sms'], [80, 20])
   )
 
   populate_purchase(type: exec_batch, count: purchases, size: batch_size) `INSERT INTO purchase (customer_id, amount, location)
     __values__` (
-      ref_rand('populate_customer').id,
+      ref('populate_customer').id,
       gen('number:1,100'),
       point_wkt(51.54132360163191, -0.14508409691164165, 100)
   )
@@ -333,9 +333,9 @@ seed {
 deseed {
   truncate_notification(type: exec) `TRUNCATE TABLE notification`
 
-  truncate_anomaly(type: exec) `TRUNCATE TABLE anomaly`
+  truncate_anomaly(type: exec) `TRUNCATE TABLE anomaly CASCADE`
 
-  truncate_purchase(type: exec) `TRUNCATE TABLE purchase`
+  truncate_purchase(type: exec) `TRUNCATE TABLE purchase CASCADE`
 
   truncate_customer(type: exec) `TRUNCATE TABLE customer CASCADE`
 }
@@ -381,7 +381,7 @@ stages {
 run {
   checkout `INSERT INTO purchase (customer_id, amount, location)
     VALUES ($1::UUID, $2::DECIMAL, $3)` (
-      ref_rand('fetch_customers').id,
+      ref('fetch_customers').id,
       gen('number:1,100'),
       point_wkt(51.54132360163191, -0.14508409691164165, 50)
   )

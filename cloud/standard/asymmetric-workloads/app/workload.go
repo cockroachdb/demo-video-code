@@ -30,10 +30,12 @@ func main() {
 	}
 
 	workerCount := runtime.NumCPU()
+
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		log.Fatalf("error parsing connection string: %v", err)
 	}
+
 	cfg.MaxConns = int32(workerCount)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -99,6 +101,7 @@ func simulateDay(startHour int, hourFrequency time.Duration, work chan<- struct{
 	workTicks := time.Tick(getWorkTickFrequency(currentHour))
 
 	printTicks := time.Tick(time.Second)
+
 	var requestCount int
 
 	for {
@@ -111,6 +114,7 @@ func simulateDay(startHour int, hourFrequency time.Duration, work chan<- struct{
 
 		case <-workTicks:
 			work <- struct{}{}
+
 			requestCount++
 
 		case <-printTicks:
@@ -186,6 +190,7 @@ func getLocalSettings() (loco *time.Location, region string, url string, err err
 	default:
 		loco = time.UTC
 		region = "aws-eu-central-1"
+
 		if !hasFallbackURL {
 			err = fmt.Errorf("no region provided and missing fallback CONNECTION_STRING")
 		}
@@ -239,11 +244,13 @@ func fetchIDs(db *pgxpool.Pool, count int, region string) ([]string, error) {
 	}
 
 	var accountIDs []string
+
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
 			return nil, fmt.Errorf("scanning id: %w", err)
 		}
+
 		accountIDs = append(accountIDs, id)
 	}
 

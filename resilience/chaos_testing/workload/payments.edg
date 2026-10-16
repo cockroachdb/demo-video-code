@@ -1,5 +1,4 @@
 let accounts   = 10000
-let batch_size = 1000
 
 up {
   enable_fortification `SET CLUSTER SETTING kv.raft.leader_fortification.fraction_enabled = 1`
@@ -30,13 +29,12 @@ init {
 }
 
 weights {
-  make_transfer      = 60
-  receive_transfer   = 30
+  make_transfer      = 90
   check_balance      = 10
 }
 
 stages {
-  main(workers: 1, duration: 24h, weights: {make_transfer: 40, receive_transfer: 30, check_balance: 10}, qps: 100)
+  main(workers: 1, duration: 24h, weights: {make_transfer: 90, check_balance: 10}, qps: 100)
 }
 
 run {
@@ -51,18 +49,7 @@ run {
       gen('number:10,100')
   )
 
-  receive_transfer(type: exec) `UPDATE account
-      SET balance = CASE
-        WHEN id = $1 THEN balance - $3
-        WHEN id = $2 THEN balance + $3
-      END
-    WHERE id IN ($1, $2)` (
-      ref_diff('fetch_accounts').id,
-      ref_diff('fetch_accounts').id,
-      gen('number:10,100')
-  )
-
   check_balance(type: query) `SELECT balance FROM account WHERE id = $1` (
-      ref_rand('fetch_accounts').id
+      ref('fetch_accounts').id
   )
 }

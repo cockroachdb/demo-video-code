@@ -34,6 +34,7 @@ func (a *Reasoning) Process(ctx context.Context, m models.Message) error {
 	if err := models.ParsePayload(m, &msg); err != nil {
 		return fmt.Errorf("parsing anomaly message: %w", err)
 	}
+
 	log.Printf("anomaly received")
 
 	// Fetch purchase context.
@@ -41,18 +42,21 @@ func (a *Reasoning) Process(ctx context.Context, m models.Message) error {
 	if err != nil {
 		return fmt.Errorf("fetching context for reasoning: %w", err)
 	}
+
 	log.Printf("purchase context fetched")
 
 	resp, err := a.performLLMRequest(context.String())
 	if err != nil {
 		return fmt.Errorf("performing reasoning: %w", err)
 	}
+
 	log.Printf("llm response received")
 
 	// Store the response alongside the anomaly.
 	if err = a.storeNotification(ctx, resp, msg); err != nil {
 		return fmt.Errorf("storing reasoning: %w", err)
 	}
+
 	log.Printf("llm response stored")
 
 	return nil
@@ -86,8 +90,8 @@ func (ctx llmContext) String() string {
 												 Don't use a placeholder for their name.`
 
 	return fmt.Sprintf(
-		ctx.purchaseID,
 		messageFormat,
+		ctx.purchaseID,
 		ctx.amountContribution,
 		ctx.hourOfDayContribution,
 		ctx.locationContribution,
@@ -102,11 +106,15 @@ func (a *Reasoning) performLLMRequest(prompt string) (string, error) {
 		Model: openai.ChatModelGPT4o,
 	})
 
+	if err != nil {
+		return "", fmt.Errorf("creating chat completion: %w", err)
+	}
+
 	if len(chatCompletion.Choices) == 0 {
 		return "", fmt.Errorf("empty chat completion")
 	}
 
-	return chatCompletion.Choices[0].Message.Content, err
+	return chatCompletion.Choices[0].Message.Content, nil
 }
 
 func (a *Reasoning) fetchContext(ctx context.Context, msg models.AnomalyMessage) (llmContext, error) {
@@ -116,9 +124,13 @@ func (a *Reasoning) fetchContext(ctx context.Context, msg models.AnomalyMessage)
 	if err != nil {
 		return llmContext{}, fmt.Errorf("making query: %w", err)
 	}
+	defer rows.Close()
 
-	var name string
-	var percent float64
+	var (
+		name    string
+		percent float64
+	)
+
 	context := llmContext{
 		purchaseID: msg.PurchaseID,
 	}
@@ -138,6 +150,10 @@ func (a *Reasoning) fetchContext(ctx context.Context, msg models.AnomalyMessage)
 		case "location":
 			context.locationContribution = percent
 		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return llmContext{}, fmt.Errorf("iterating rows: %w", err)
 	}
 
 	return context, nil
