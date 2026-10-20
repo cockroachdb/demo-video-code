@@ -69,6 +69,7 @@ func NewGame(db *pgxpool.Pool) *Game {
 		similarColors: make([]*color.RGBA, 0),
 	}
 	g.colorPoints = g.generateCircularColors()
+
 	return g
 }
 
@@ -150,6 +151,7 @@ func (g *Game) displaySimilarColours() {
 			g.similarColors = make([]*color.RGBA, 0)
 			g.lastFetchError = nil
 		}
+
 		g.lastLogTime = now
 	}
 }
@@ -169,6 +171,7 @@ func (g *Game) fetchSimilarColours(h *color.RGBA) ([]*color.RGBA, error) {
 	defer rows.Close()
 
 	var colours []*color.RGBA
+
 	for rows.Next() {
 		var rgbStr string
 		if err = rows.Scan(&rgbStr); err != nil {

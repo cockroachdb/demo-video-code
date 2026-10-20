@@ -126,8 +126,10 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	var cmds []tea.Cmd
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -141,6 +143,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedAnimal = item.name
 				m.loading = true
 				m.matches = nil
+
 				return m, fetchMatchesCmd(m.db, item.name)
 			}
 
@@ -150,6 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput.Reset()
 			m.updateFilteredList()
 			m.textInput.Focus()
+
 			return m, nil
 		}
 
@@ -165,8 +169,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, tea.Quit
 		}
+
 		m.allAnimals = msg.animals
 		m.updateFilteredList()
+
 		return m, nil
 
 	case matchesLoadedMsg:
@@ -176,6 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.matches = msg.matches
 		}
+
 		return m, nil
 	}
 
@@ -280,12 +287,15 @@ func loadAnimals(db *pgxpool.Pool) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var animals []string
-	var a string
+	var (
+		animals []string
+		a       string
+	)
 	for rows.Next() {
 		if err = rows.Scan(&a); err != nil {
 			return nil, fmt.Errorf("scanning animal name: %w", err)
 		}
+
 		animals = append(animals, a)
 	}
 
@@ -310,13 +320,18 @@ func fetchMatches(db *pgxpool.Pool, animal string) ([]string, error) {
 	defer rows.Close()
 
 	var matches []string
+
 	for rows.Next() {
-		var name string
-		var score float64
+		var (
+			name  string
+			score float64
+		)
 		if err := rows.Scan(&name, &score); err != nil {
 			return nil, err
 		}
+
 		matches = append(matches, fmt.Sprintf("%s (%.2f)", name, score))
 	}
+
 	return matches, nil
 }

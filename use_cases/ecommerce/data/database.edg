@@ -1,0 +1,22 @@
+# Cluster-level DDL. Runs against a connection to defaultdb (the SHELL_URL in
+# the README), because the store database doesn't exist yet.
+#
+#   edg up   --config ecommerce/data/database.edg --url $SHELL_URL
+#   edg down --config ecommerce/data/database.edg --url $SHELL_URL
+up {
+  create_database `CREATE DATABASE IF NOT EXISTS store
+    PRIMARY REGION 'aws-eu-central-1'
+    REGIONS 'aws-us-east-1', 'aws-ap-southeast-1'`
+
+  enable_super_regions `SET CLUSTER SETTING sql.defaults.super_regions.enabled = true`
+
+  add_super_region_eu `ALTER DATABASE store ADD SUPER REGION "eu" VALUES 'aws-eu-central-1'`
+
+  add_super_region_us `ALTER DATABASE store ADD SUPER REGION "us" VALUES 'aws-us-east-1'`
+
+  add_super_region_ap `ALTER DATABASE store ADD SUPER REGION "ap" VALUES 'aws-ap-southeast-1'`
+}
+
+down {
+  drop_database `DROP DATABASE IF EXISTS store CASCADE`
+}

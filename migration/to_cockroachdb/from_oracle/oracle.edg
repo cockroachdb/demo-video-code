@@ -58,7 +58,7 @@ run {
   )
 
   check_balance(type: query) `SELECT balance FROM account WHERE id = :1 FETCH FIRST 1 ROW ONLY` (
-      ref_rand('fetch_accounts').id
+      ref('fetch_accounts').id
   )
 
   make_transfer(type: exec) `UPDATE account SET

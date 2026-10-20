@@ -63,6 +63,7 @@ func New(ctx context.Context, opts ...Option) (Store, error) {
 	if err != nil {
 		return Store{}, err
 	}
+
 	if store.conn == nil {
 		store.conn, err = pgx.Connect(ctx, store.postgresConnectionURL)
 		if err != nil {
@@ -73,9 +74,11 @@ func New(ctx context.Context, opts ...Option) (Store, error) {
 	if err = store.conn.Ping(ctx); err != nil {
 		return Store{}, err
 	}
+
 	if err = store.init(ctx); err != nil {
 		return Store{}, err
 	}
+
 	return store, nil
 }
 
@@ -125,14 +128,17 @@ func (s *Store) init(ctx context.Context) error {
 	if err := s.createCollectionTableIfNotExists(ctx, tx); err != nil {
 		return err
 	}
+
 	if err := s.createEmbeddingTableIfNotExists(ctx, tx); err != nil {
 		return err
 	}
+
 	if s.preDeleteCollection {
 		if err := s.RemoveCollection(ctx, tx); err != nil {
 			return err
 		}
 	}
+
 	if err := s.createOrGetCollection(ctx, tx); err != nil {
 		return err
 	}
@@ -152,6 +158,7 @@ func (s Store) createCollectionTableIfNotExists(ctx context.Context, tx pgx.Tx) 
 	if _, err := tx.Exec(ctx, sql); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -190,6 +197,7 @@ func (s Store) createEmbeddingTableIfNotExists(ctx context.Context, tx pgx.Tx) e
 		if s.hnswIndex.m > 0 && s.hnswIndex.efConstruction > 0 {
 			sql = fmt.Sprintf("%s WITH (m=%d, ef_construction = %d)", sql, s.hnswIndex.m, s.hnswIndex.efConstruction)
 		}
+
 		if _, err := tx.Exec(ctx, sql); err != nil {
 			return err
 		}
@@ -221,6 +229,7 @@ func (s Store) AddDocuments(
 	if opts.Embedder != nil {
 		embedder = opts.Embedder
 	}
+
 	vectors, err := embedder.EmbedDocuments(ctx, texts)
 	if err != nil {
 		return nil, err
@@ -240,6 +249,7 @@ func (s Store) AddDocuments(
 		ids[docIdx] = id
 		b.Queue(sql, id, doc.PageContent, pgvector.NewVector(vectors[docIdx]), doc.Metadata, s.collectionUUID)
 	}
+
 	return ids, s.conn.SendBatch(ctx, b).Close()
 }
 
@@ -247,6 +257,7 @@ func (s Store) AddDocuments(
 func (s Store) SimilaritySearch(ctx context.Context, query string, numDocuments int, options ...vectorstores.Option) ([]schema.Document, error) {
 	opts := s.getOptions(options...)
 	collectionName := s.getNameSpace(opts)
+
 	scoreThreshold, err := s.getScoreThreshold(opts)
 	if err != nil {
 		return nil, err
@@ -312,13 +323,16 @@ func (s Store) SimilaritySearch(ctx context.Context, query string, numDocuments 
 	defer rows.Close()
 
 	docs := make([]schema.Document, 0)
+
 	for rows.Next() {
 		doc := schema.Document{}
 		if err := rows.Scan(&doc.PageContent, &doc.Metadata, &doc.Score); err != nil {
 			return nil, err
 		}
+
 		docs = append(docs, doc)
 	}
+
 	return docs, rows.Err()
 }
 
@@ -326,18 +340,22 @@ func (s Store) SimilaritySearch(ctx context.Context, query string, numDocuments 
 func (s Store) Search(ctx context.Context, numDocuments int, options ...vectorstores.Option) ([]schema.Document, error) {
 	opts := s.getOptions(options...)
 	collectionName := s.getNameSpace(opts)
+
 	filter, err := s.getFilters(opts)
 	if err != nil {
 		return nil, err
 	}
+
 	whereQuerys := make([]string, 0)
 	for k, v := range filter {
 		whereQuerys = append(whereQuerys, fmt.Sprintf("(%s.cmetadata ->> '%s') = '%s'", s.embeddingTableName, k, v))
 	}
+
 	whereQuery := strings.Join(whereQuerys, " AND ")
 	if len(whereQuery) == 0 {
 		whereQuery = "TRUE"
 	}
+
 	sql := fmt.Sprintf(`SELECT
 												%[1]s.document,
 												%[1]s.cmetadata
@@ -347,11 +365,14 @@ func (s Store) Search(ctx context.Context, numDocuments int, options ...vectorst
 											LIMIT $1`,
 		s.embeddingTableName, s.collectionTableName, s.collectionTableName, s.collectionTableName, collectionName,
 		whereQuery)
+
 	rows, err := s.conn.Query(ctx, sql, numDocuments)
 	if err != nil {
 		return nil, err
 	}
+
 	docs := make([]schema.Document, 0)
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -359,8 +380,10 @@ func (s Store) Search(ctx context.Context, numDocuments int, options ...vectorst
 		if err := rows.Scan(&doc.PageContent, &doc.Metadata); err != nil {
 			return nil, err
 		}
+
 		docs = append(docs, doc)
 	}
+
 	return docs, rows.Err()
 }
 
@@ -373,9 +396,11 @@ func (s Store) DropTables(ctx context.Context) error {
 	if _, err := s.conn.Exec(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, s.embeddingTableName)); err != nil {
 		return err
 	}
+
 	if _, err := s.conn.Exec(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, s.collectionTableName)); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -392,7 +417,9 @@ func (s *Store) createOrGetCollection(ctx context.Context, tx pgx.Tx) error {
 	if _, err := tx.Exec(ctx, sql, uuid.New().String(), s.collectionName, s.collectionMetadata); err != nil {
 		return err
 	}
+
 	sql = fmt.Sprintf(`SELECT uuid FROM %s WHERE name = $1 ORDER BY name limit 1`, s.collectionTableName)
+
 	return tx.QueryRow(ctx, sql, s.collectionName).Scan(&s.collectionUUID)
 }
 
@@ -403,6 +430,7 @@ func (s Store) getOptions(options ...vectorstores.Option) vectorstores.Options {
 	for _, opt := range options {
 		opt(&opts)
 	}
+
 	return opts
 }
 
@@ -410,6 +438,7 @@ func (s Store) getNameSpace(opts vectorstores.Options) string {
 	if opts.NameSpace != "" {
 		return opts.NameSpace
 	}
+
 	return s.collectionName
 }
 
@@ -417,6 +446,7 @@ func (s Store) getScoreThreshold(opts vectorstores.Options) (float32, error) {
 	if opts.ScoreThreshold < 0 || opts.ScoreThreshold > 1 {
 		return 0, ErrInvalidScoreThreshold
 	}
+
 	return opts.ScoreThreshold, nil
 }
 
@@ -426,8 +456,10 @@ func (s Store) getFilters(opts vectorstores.Options) (map[string]any, error) {
 		if filters, ok := opts.Filters.(map[string]any); ok {
 			return filters, nil
 		}
+
 		return nil, ErrInvalidFilters
 	}
+
 	return map[string]any{}, nil
 }
 
