@@ -23,11 +23,12 @@ Regions and ports:
 | EU `region_2` (primary) | eu-central-1   | lat-roach4–6 | localhost:26258 | :8081      |
 | AP `region_3`           | ap-southeast-1 | lat-roach7–9 | localhost:26259 | :8082      |
 
-Simulated round trips: US↔EU ~90 ms, EU↔AP ~156 ms, US↔AP ~220 ms. Nodes within a region aren't delayed.
+Simulated round trips: US↔EU ~90 ms, EU↔AP ~160 ms, US↔AP ~220 ms. Nodes within a region aren't delayed.
 
 ## Prerequisites
 
 - Podman (or Docker) running, with Docker Compose v2+. On podman: `podman machine start`.
+- On Docker without podman, start the app with `CONTAINER_CLI=docker`. If you don't, the node and region buttons fail (the app calls `podman` by default).
 - `cockroach` CLI and Go on your PATH.
 - Free ports: 26257–26259, 8080–8082, 3000–3002.
 - Optional: an enterprise license in `iot/cluster/.env` as `COCKROACH_ENTERPRISE_LICENSE=...` (gitignored). The demo runs without one.
@@ -35,12 +36,13 @@ Simulated round trips: US↔EU ~90 ms, EU↔AP ~156 ms, US↔AP ~220 ms. Nodes w
 
 ## First-time setup
 
-All commands run from the repo root.
+All commands run from `use_cases/` (the folder that contains `iot/`), not the repo root.
 
 ```sh
 docker build -t localhost/lat-netem -f iot/cluster/netem/Containerfile iot/cluster/netem
 (cd iot/cluster && docker-compose -f docker-compose.latency.yml up -d)
 
+# Run setup.sql once only. A second run fails because the tables already exist.
 cockroach sql --insecure --host localhost:26257 -f iot/setup.sql
 DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" go run ./iot/seed
 ```
@@ -48,20 +50,20 @@ DATABASE_URL="postgres://root@localhost:26257/iot?sslmode=disable" go run ./iot/
 ## Start (every time)
 
 ```sh
-# 1. If the laptop slept, resync the VM clock first (see "Gotchas")
+# 1. Podman only: if the laptop slept, resync the VM clock first (see "Gotchas")
 podman machine ssh -- sudo chronyc -a makestep
 
-# 2. Cluster (~30 s until it accepts connections), from the repo root
+# 2. Cluster (~30 s until it accepts connections), from use_cases/
 (cd iot/cluster && docker-compose -f docker-compose.latency.yml up -d)
 
 # 3. App
-iot/run.sh start
+iot/run.sh start          # on Docker: CONTAINER_CLI=docker iot/run.sh start
 
 # 4. Map
 open iot/app/index.html
 ```
 
-Healthy looks like: banner says **LIVE**, every hub shows **3/3 nodes**, WAN arcs show ~91 / 156 / 221 ms, and writes sit around 15–30 ms.
+Healthy looks like: banner says **LIVE**, every hub shows **3/3 nodes**, WAN arcs show ~91 / 160 / 221 ms, and writes sit around 15–30 ms.
 
 Before the first visitor, set **Speed 1×** and **Survive: Zone**.
 
@@ -80,7 +82,7 @@ Before the first visitor, set **Speed 1×** and **Survive: Zone**.
 
 - **Speed 1× / 3× / 5× / 10×**: plane speed for all regions. Use 1× or 3× during failure demos.
 - **UFO**: shows a saucer that tours the regions (also the `U` key).
-- **Node buttons 1–9**: click to kill (`podman kill`) or restart a node. Restarting re-applies the network latency automatically.
+- **Node buttons 1–9**: click to kill (`podman kill`, or `docker kill` with `CONTAINER_CLI=docker`) or restart a node. Restarting re-applies the network latency automatically.
 - **Kill region / Restore**: kills all three nodes in a region. Only enabled under **Survive: Region**.
 - **Survive: Zone | Region**: runs `ALTER DATABASE iot SURVIVE ... FAILURE`. Only change it with all 9 nodes up; it takes ~30 s to settle.
 
