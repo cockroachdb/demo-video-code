@@ -18,6 +18,7 @@ import (
 func main() {
 	model := flag.String("model", "llama3.2", "name of the model to use for embedding generation")
 	add := flag.String("add", "", "add a single additional animal")
+
 	flag.Parse()
 
 	db, err := pgxpool.New(context.Background(), "postgres://root@localhost:26257?sslmode=disable")
@@ -61,6 +62,7 @@ func formatVector(vec []float64) string {
 	for i, v := range vec {
 		strValues[i] = fmt.Sprintf("%f", v)
 	}
+
 	return "[" + strings.Join(strValues, ",") + "]"
 }
 

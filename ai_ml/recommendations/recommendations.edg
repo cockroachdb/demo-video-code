@@ -42,7 +42,7 @@ seed {
     __values__
     RETURNING id` (
       gen('email'),
-      set_rand(['male', 'female', 'trans-male', 'trans-female', 'non-binary'], [47, 47, 0.1, 0.1, 0.06]),
+      set(['male', 'female', 'trans-male', 'trans-female', 'non-binary'], [4700, 4700, 10, 10, 6]),
       date('2006-01-02T15:04:05Z07:00', '1950-01-01T00:00:00+00:00', '2006-01-21T00:00:00+00:00'),
       point_wkt(51.04284752235447, -0.8911379425829405, 20000)
   )
@@ -57,7 +57,7 @@ seed {
   populate_purchase(type: query_batch, count: purchases, size: batch_size) `INSERT INTO purchase (customer_id, total, ts)
     __values__
     RETURNING id` (
-      ref_rand('populate_customer').id,
+      ref('populate_customer').id,
       gen('number:1,1000'),
       date('2006-01-02T15:04:05Z07:00', '2014-08-01T01:00:00+01:00', '2024-07-29T01:00:00+01:00')
   )
@@ -65,8 +65,8 @@ seed {
   populate_purchase_item(type: exec_batch, count: purchase_items, size: batch_size) `INSERT INTO purchase_item (purchase_id, product_id, quantity)
     __values__
     ON CONFLICT DO NOTHING` (
-      ref_rand('populate_purchase').id,
-      ref_rand('populate_product').id,
+      ref('populate_purchase').id,
+      ref('populate_product').id,
       gen('number:1,5')
   )
 }
@@ -74,7 +74,7 @@ seed {
 deseed {
   truncate_purchase_item(type: exec) `TRUNCATE TABLE purchase_item`
 
-  truncate_purchase(type: exec) `TRUNCATE TABLE purchase`
+  truncate_purchase(type: exec) `TRUNCATE TABLE purchase CASCADE`
 
   truncate_product(type: exec) `TRUNCATE TABLE product CASCADE`
 

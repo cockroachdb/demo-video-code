@@ -42,6 +42,7 @@ func (a *Notification) Process(ctx context.Context, m models.Message) error {
 	if err := models.ParsePayload(m, &msg); err != nil {
 		return fmt.Errorf("parsing notification message: %w", err)
 	}
+
 	log.Printf("notification received")
 
 	// Fetch purchase context.
@@ -49,6 +50,7 @@ func (a *Notification) Process(ctx context.Context, m models.Message) error {
 	if err != nil {
 		return fmt.Errorf("fetching context for reasoning: %w", err)
 	}
+
 	log.Printf("context fetched")
 
 	log.Printf("sending notification: %+v", context)

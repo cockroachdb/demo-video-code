@@ -41,3 +41,10 @@ If you've seen a video and its code doesn't feature here, let us know and we'll 
 * Resilience
   * [Chaos Testing](resilience/chaos_testing/README.md)
   * [Chaos Testing Workshop](resilience/chaos_testing/chaos_testing_workshop/README.md)
+
+* Use Cases
+  * [e-Commerce](use_cases/ecommerce/README.md)
+  * [IAM](use_cases/iam/README.md)
+  * [IoT](use_cases/iot/README.md)
+  * [Payments](use_cases/payments/README.md)
+  * [User Accounts](use_cases/README.md)

@@ -1,0 +1,11 @@
+{
+  "name": "kafka",
+  "type": "CIDR",
+  "destination": "10.0.0.1/16",
+  "ports": [
+    9092,
+    29092
+  ],
+  "paths": [],
+  "description": "egress for Kafka"
+}

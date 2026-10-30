@@ -1,0 +1,271 @@
+# 9-node CockroachDB cluster with simulated WAN latency between regions (tc netem).
+# Own container names, data dir (crdb-data-latency/) and network, so it can run alongside nothing else on 26257/8080.
+# Optional: put COCKROACH_ENTERPRISE_LICENSE (and COCKROACH_VERSION) in a .env file next to this file.
+#
+#   region_1 (us-east-1)      -> lat-roach1..3   SQL localhost:26257  console :8080
+#   region_2 (eu-central-1)   -> lat-roach4..6   SQL localhost:26258  console :8081
+#   region_3 (ap-southeast-1) -> lat-roach7..9   SQL localhost:26259  console :8082
+#
+# One-way delays between regions (half the typical AWS round trip):
+#   US<->EU 45ms, EU<->AP 78ms, US<->AP 110ms. Nodes inside a region aren't delayed.
+#
+# Usage:
+#   docker build -t localhost/lat-netem -f netem/Containerfile netem   # once
+#   docker-compose -f docker-compose.latency.yml up -d
+#   ./latency.sh off | on | status          # toggle the WAN latency live
+#   docker-compose -f docker-compose.latency.yml down     # keep data (crdb-data-latency/)
+#
+# --disable-max-offset-check: all nodes share the VM's clock, so a load-induced heartbeat delay must not
+# be mistaken for clock skew (nodes otherwise self-terminate when the laptop is busy).
+#
+# The netem-N helpers apply the delays once and exit. If a node restarts, re-run ./latency.sh on.
+
+x-roach-template: &roach-template
+  image: cockroachdb/cockroach:${COCKROACH_VERSION:-v26.2.2}
+  networks:
+    - latnet
+  stop_grace_period: 10s
+  mem_limit: 1024m
+
+x-netem-template: &netem-template
+  image: localhost/lat-netem
+  pull_policy: never
+  cap_add:
+    - NET_ADMIN
+  restart: "no"
+  command: ["on"]
+  depends_on:
+    - lat-roach1
+    - lat-roach2
+    - lat-roach3
+    - lat-roach4
+    - lat-roach5
+    - lat-roach6
+    - lat-roach7
+    - lat-roach8
+    - lat-roach9
+
+services:
+  lat-roach1:
+    <<: *roach-template
+    container_name: lat-roach1
+    hostname: lat-roach1
+    volumes:
+      - ./crdb-data-latency/lat-roach1:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_1,zone=region_1a --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach1:26257 --http-addr=lat-roach1:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach2:
+    <<: *roach-template
+    container_name: lat-roach2
+    hostname: lat-roach2
+    volumes:
+      - ./crdb-data-latency/lat-roach2:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_1,zone=region_1b --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach2:26257 --http-addr=lat-roach2:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach3:
+    <<: *roach-template
+    container_name: lat-roach3
+    hostname: lat-roach3
+    volumes:
+      - ./crdb-data-latency/lat-roach3:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_1,zone=region_1c --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach3:26257 --http-addr=lat-roach3:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach4:
+    <<: *roach-template
+    container_name: lat-roach4
+    hostname: lat-roach4
+    volumes:
+      - ./crdb-data-latency/lat-roach4:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_2,zone=region_2a --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach4:26257 --http-addr=lat-roach4:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach5:
+    <<: *roach-template
+    container_name: lat-roach5
+    hostname: lat-roach5
+    volumes:
+      - ./crdb-data-latency/lat-roach5:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_2,zone=region_2b --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach5:26257 --http-addr=lat-roach5:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach6:
+    <<: *roach-template
+    container_name: lat-roach6
+    hostname: lat-roach6
+    volumes:
+      - ./crdb-data-latency/lat-roach6:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_2,zone=region_2c --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach6:26257 --http-addr=lat-roach6:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach7:
+    <<: *roach-template
+    container_name: lat-roach7
+    hostname: lat-roach7
+    volumes:
+      - ./crdb-data-latency/lat-roach7:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_3,zone=region_3a --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach7:26257 --http-addr=lat-roach7:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach8:
+    <<: *roach-template
+    container_name: lat-roach8
+    hostname: lat-roach8
+    volumes:
+      - ./crdb-data-latency/lat-roach8:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_3,zone=region_3b --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach8:26257 --http-addr=lat-roach8:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach9:
+    <<: *roach-template
+    container_name: lat-roach9
+    hostname: lat-roach9
+    volumes:
+      - ./crdb-data-latency/lat-roach9:/cockroach/cockroach-data
+    command: >
+      start --insecure --join=lat-roach1,lat-roach4,lat-roach7 --locality=region=region_3,zone=region_3c --cache=192MiB --max-sql-memory=256MiB --disable-max-offset-check --listen-addr=lat-roach9:26257 --http-addr=lat-roach9:8080 --log='sinks: {stderr: {channels: ALL, filter: WARNING}}'
+
+  lat-roach-init:
+    image: cockroachdb/cockroach:${COCKROACH_VERSION:-v26.2.2}
+    container_name: lat-roach-init
+    networks:
+      - latnet
+    depends_on:
+      - lat-roach1
+      - lat-roach2
+      - lat-roach3
+      - lat-roach4
+      - lat-roach5
+      - lat-roach6
+      - lat-roach7
+      - lat-roach8
+      - lat-roach9
+    environment:
+      - COCKROACH_ENTERPRISE_LICENSE=${COCKROACH_ENTERPRISE_LICENSE}
+    command: >
+      bash -c "
+      echo 'Waiting for CockroachDB nodes to be ready...' &&
+      sleep 10 &&
+      (./cockroach init --host=lat-roach1:26257 --insecure 2>&1 || echo 'Cluster already initialized, continuing...') &&
+      ([ -z \"$$COCKROACH_ENTERPRISE_LICENSE\" ] || ./cockroach sql --host=lat-roach1:26257 --insecure -e \"SET CLUSTER SETTING enterprise.license = '$$COCKROACH_ENTERPRISE_LICENSE';\") &&
+      ./cockroach sql --host=lat-roach1:26257 --insecure -e \"ALTER RANGE default CONFIGURE ZONE USING gc.ttlseconds = 60;\" &&
+      echo 'Cluster initialized.'
+      "
+    restart: "no"
+
+  netem-1:
+    <<: *netem-template
+    container_name: lat-netem-1
+    network_mode: "service:lat-roach1"
+    environment:
+      - MY_REGION=region_1
+
+  netem-2:
+    <<: *netem-template
+    container_name: lat-netem-2
+    network_mode: "service:lat-roach2"
+    environment:
+      - MY_REGION=region_1
+
+  netem-3:
+    <<: *netem-template
+    container_name: lat-netem-3
+    network_mode: "service:lat-roach3"
+    environment:
+      - MY_REGION=region_1
+
+  netem-4:
+    <<: *netem-template
+    container_name: lat-netem-4
+    network_mode: "service:lat-roach4"
+    environment:
+      - MY_REGION=region_2
+
+  netem-5:
+    <<: *netem-template
+    container_name: lat-netem-5
+    network_mode: "service:lat-roach5"
+    environment:
+      - MY_REGION=region_2
+
+  netem-6:
+    <<: *netem-template
+    container_name: lat-netem-6
+    network_mode: "service:lat-roach6"
+    environment:
+      - MY_REGION=region_2
+
+  netem-7:
+    <<: *netem-template
+    container_name: lat-netem-7
+    network_mode: "service:lat-roach7"
+    environment:
+      - MY_REGION=region_3
+
+  netem-8:
+    <<: *netem-template
+    container_name: lat-netem-8
+    network_mode: "service:lat-roach8"
+    environment:
+      - MY_REGION=region_3
+
+  netem-9:
+    <<: *netem-template
+    container_name: lat-netem-9
+    network_mode: "service:lat-roach9"
+    environment:
+      - MY_REGION=region_3
+
+  lat-haproxy-r1:
+    image: haproxy:latest
+    container_name: lat-haproxy-r1
+    networks:
+      - latnet
+    ports:
+      - "26257:26000"
+      - "8080:8080"
+      - "8404:8404"
+    volumes:
+      - ./haproxy.lat-r1.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - lat-roach1
+      - lat-roach2
+      - lat-roach3
+
+  lat-haproxy-r2:
+    image: haproxy:latest
+    container_name: lat-haproxy-r2
+    networks:
+      - latnet
+    ports:
+      - "26258:26000"
+      - "8081:8080"
+      - "8405:8404"
+    volumes:
+      - ./haproxy.lat-r2.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - lat-roach4
+      - lat-roach5
+      - lat-roach6
+
+  lat-haproxy-r3:
+    image: haproxy:latest
+    container_name: lat-haproxy-r3
+    networks:
+      - latnet
+    ports:
+      - "26259:26000"
+      - "8082:8080"
+      - "8406:8404"
+    volumes:
+      - ./haproxy.lat-r3.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - lat-roach7
+      - lat-roach8
+      - lat-roach9
+
+networks:
+  latnet:
+    driver: bridge

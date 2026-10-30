@@ -1,0 +1,106 @@
+# Schema and reference/demo data for the store database. Run after
+# database.edg has created the database itself:
+#
+#   edg up     --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+#   edg seed   --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+#   edg deseed --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+#   edg down   --config ecommerce/data/store.edg --url $DATABASE_URL_EU
+import 'ddl.edg'
+
+let customers  = 1000
+let baskets    = 1000
+let batch_size = 1000
+
+# One row per market. "rate" is the local price multiplier applied to a
+# product's base (EUR) amount.
+ref markets [
+  {code: 'de', crdb_region: 'aws-eu-central-1', currency: 'EUR', rate: 1.00}
+  {code: 'es', crdb_region: 'aws-eu-central-1', currency: 'EUR', rate: 0.98}
+  {code: 'fr', crdb_region: 'aws-eu-central-1', currency: 'EUR', rate: 0.97}
+  {code: 'ie', crdb_region: 'aws-eu-central-1', currency: 'EUR', rate: 1.02}
+  {code: 'uk', crdb_region: 'aws-eu-central-1', currency: 'GBP', rate: 0.94}
+  {code: 'br', crdb_region: 'aws-us-east-1', currency: 'BRL', rate: 6.20}
+  {code: 'bs', crdb_region: 'aws-us-east-1', currency: 'BSD', rate: 1.20}
+  {code: 'co', crdb_region: 'aws-us-east-1', currency: 'COP', rate: 4700}
+  {code: 'mx', crdb_region: 'aws-us-east-1', currency: 'MXN', rate: 21.40}
+  {code: 'us', crdb_region: 'aws-us-east-1', currency: 'USD', rate: 1.20}
+  {code: 'hk', crdb_region: 'aws-ap-southeast-1', currency: 'HKD', rate: 9.40}
+  {code: 'in', crdb_region: 'aws-ap-southeast-1', currency: 'INR', rate: 99}
+  {code: 'ja', crdb_region: 'aws-ap-southeast-1', currency: 'JPY', rate: 187}
+  {code: 'my', crdb_region: 'aws-ap-southeast-1', currency: 'MYR', rate: 4.95}
+  {code: 'sg', crdb_region: 'aws-ap-southeast-1', currency: 'SGD', rate: 1.50}
+]
+
+# Base amounts are in EUR.
+ref products [
+  {id: 'c28e384e-52d0-4c4a-b1d4-dc55c85977d9', name: 'Americano', amount: 3.20}
+  {id: '0472ea18-a5b2-450c-ab64-03406a6bd27c', name: 'Cappuccino', amount: 4.40}
+  {id: '3b601135-bcde-4e39-9b6f-4218e31e6990', name: 'Cortado', amount: 3.40}
+]
+
+seed {
+  populate_product(type: exec_batch, count: len(products), size: len(products))
+    `INSERT INTO product ("id", "name") __values__` (
+      ref_each(products).id,
+      ref_each(products).name
+    )
+
+  # Every product in every market, priced in the market's currency.
+  populate_market_product(type: exec_batch, count: len(products) * len(markets), size: len(markets))
+    `INSERT INTO market_product ("product_id", "market", "amount", "currency") __values__`
+    let market = markets[(iter() - 1) % len(markets)]
+    (
+      ref_each(products, len(markets)).id,
+      local('market').code,
+      round(ref_each(products, len(markets)).amount * local('market').rate, 2),
+      local('market').currency
+    )
+
+  populate_stock `INSERT INTO stock ("market_product_id", "crdb_region", "quantity_on_hand", "quantity_on_order")
+    SELECT id, crdb_region, 1000, 100
+    FROM market_product`
+
+  populate_region_market `INSERT INTO region_market ("region", "market")
+    SELECT DISTINCT crdb_region, market
+    FROM market_product`
+
+  populate_customer(type: exec_batch, count: customers, size: batch_size)
+    `INSERT INTO customer ("email", "crdb_region") __values__` (
+      uniq_across('emails', "gen('email')"),
+      ref_same('markets').crdb_region
+    )
+
+  # Customer and product pairs that live in the same region, so a seeded
+  # basket can be checked out by the customer holding it. The customer
+  # sample keeps the pair pool bounded however many customers are seeded.
+  fetch_pairs(type: query) `SELECT
+      c.id AS customer_id,
+      mp.id AS market_product_id,
+      mp.crdb_region AS crdb_region
+    FROM (SELECT id, crdb_region FROM customer ORDER BY random() LIMIT 2000) c
+    JOIN market_product mp ON mp.crdb_region = c.crdb_region`
+
+  populate_basket(type: exec_batch, count: baskets, size: batch_size)
+    `INSERT INTO basket ("customer_id", "market_product_id", "quantity", "crdb_region") __values__` (
+      ref_same('fetch_pairs').customer_id,
+      ref_same('fetch_pairs').market_product_id,
+      set([1, 2, 5, 10], [10, 5, 2, 1]),
+      ref_same('fetch_pairs').crdb_region
+    )
+}
+
+deseed {
+  truncate_purchase `TRUNCATE TABLE purchase CASCADE`
+
+  truncate_basket `TRUNCATE TABLE basket CASCADE`
+
+  truncate_stock `TRUNCATE TABLE stock CASCADE`
+
+  truncate_market_product `TRUNCATE TABLE market_product CASCADE`
+
+  truncate_product `TRUNCATE TABLE product CASCADE`
+
+  truncate_customer `TRUNCATE TABLE customer CASCADE`
+
+  truncate_region_market `TRUNCATE TABLE region_market CASCADE`
+}

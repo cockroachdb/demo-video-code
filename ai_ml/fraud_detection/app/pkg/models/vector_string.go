@@ -25,13 +25,16 @@ func (v *VectorString) UnmarshalJSON(data []byte) error {
 		if part == "" {
 			continue
 		}
+
 		f, err := strconv.ParseFloat(part, 64)
 		if err != nil {
 			return err
 		}
+
 		result = append(result, f)
 	}
 
 	*v = result
+
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 func main() {
 	databaseURL := flag.String("database-url", "", "url to the database")
 	shoppers := flag.Int("shoppers", 1, "number of shoppers to simulate")
+
 	flag.Parse()
 
 	if *databaseURL == "" {
@@ -39,7 +40,7 @@ func main() {
 func simulateShoppers(db *pgxpool.Pool, count int) error {
 	eg := errgroup.Group{}
 
-	for i := 0; i < count; i++ {
+	for range count {
 		eg.Go(func() error {
 			return simulateShopper(db)
 		})
@@ -65,6 +66,7 @@ func simulateShopper(db *pgxpool.Pool) error {
 				log.Printf("error browsing for products: %v", err)
 				continue
 			}
+
 			fmt.Println("browse")
 
 		case <-purchaseTicks:
@@ -72,6 +74,7 @@ func simulateShopper(db *pgxpool.Pool) error {
 				log.Printf("error placing order: %v", err)
 				continue
 			}
+
 			fmt.Println("purchase")
 		}
 	}
@@ -102,6 +105,7 @@ func browse(db *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("executing query: %w", err)
 	}
+
 	rows.Close()
 
 	return nil
@@ -126,11 +130,13 @@ func purchase(db *pgxpool.Pool, memberID string) error {
 }
 
 func randomProductsJSON() (string, float64, error) {
-	var products []product
-	var total float64
+	var (
+		products []product
+		total    float64
+	)
 
 	productCount := rand.IntN(5) + 1
-	for i := 0; i < productCount; i++ {
+	for range productCount {
 		p := product{
 			ID:    gofakeit.UUID(),
 			Price: gofakeit.Price(1, 100),

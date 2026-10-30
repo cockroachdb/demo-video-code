@@ -1,0 +1,13 @@
+{
+  "name": "us-buckets",
+  "type": "FQDN",
+  "destination": "s3.us-east-1.amazonaws.com",
+  "ports": [
+    443,
+    80
+  ],
+  "paths": [
+    "/example-s3-bucket-path/*"
+  ],
+  "description": "egress for S3 buckets in US"
+}

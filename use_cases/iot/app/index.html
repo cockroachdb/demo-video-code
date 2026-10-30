@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Global Fleet Telemetry</title>
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <style>
+      @font-face {
+        font-family: "Geist";
+        font-weight: 100 900;
+        src: url(vendor/Geist-latin.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        font-weight: 100 900;
+        src: url(vendor/GeistMono-latin.woff2) format("woff2");
+      }
+
+      :root {
+        --ink: #0b0b0c;
+        --panel: rgba(21, 22, 26, 0.86);
+        --line: #2a2b31;
+        --text: #f4f4f5;
+        --muted: #9a9aa3;
+        --us: #9059ff;
+        --eu: #60ecff;
+        --ap: #aede54;
+        --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+        --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text); font-family: var(--sans); overflow: hidden; }
+      #map { position: absolute; inset: 0; background: var(--ink); }
+      .leaflet-container { background: var(--ink); font-family: var(--sans); }
+
+      .panel {
+        position: absolute; z-index: 1000; background: var(--panel);
+        border: 1px solid var(--line); border-radius: 14px;
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      }
+
+      header { top: 24px; left: 24px; padding: 18px 26px; display: flex; align-items: center; gap: 22px; }
+      header img { height: 30px; }
+      header .divider { width: 1px; height: 40px; background: var(--line); }
+      header h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+      header p { margin: 4px 0 0; font-size: 16px; color: var(--muted); }
+
+      .live { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 14px; color: var(--ap); margin-left: 8px; }
+      .live::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; animation: blink 1.6s infinite; }
+      .live.down { color: #ff6b6b; }
+      @keyframes blink { 50% { opacity: 0.25; } }
+
+      aside { bottom: 24px; right: 24px; left: 24px; padding: 18px 24px; display: flex; gap: 20px; }
+      aside > div { min-width: 0; }
+      aside > div + div { border-left: 1px solid var(--line); padding-left: 20px; }
+      aside h2, #feed h2 { margin: 0 0 14px; font-size: 13px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+      #regions { display: flex; gap: 18px; }
+      .region { display: grid; grid-template-columns: 12px auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; }
+      .swatch { width: 14px; height: 14px; border-radius: 4px; }
+      .region .swatch { grid-row: 1; }
+      .region .name { font-size: 17px; font-weight: 600; white-space: nowrap; }
+      .region .sub { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+      .region .count { grid-column: 2; font-family: var(--mono); font-size: 38px; font-weight: 500; line-height: 1.1; transition: color 0.3s; }
+      .region .count.bump { color: var(--text); text-shadow: 0 0 18px currentColor; }
+
+      .stats { display: grid; grid-template-columns: auto auto; gap: 10px 18px; align-content: center; }
+      .stats .stat:first-child { grid-column: 1 / -1; }
+      .stat .v { font-family: var(--mono); font-size: 26px; }
+      .stat .k { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+      .tables { flex: 1; overflow: hidden; }
+      .tbl { display: flex; gap: 10px; align-items: baseline; margin-bottom: 7px; white-space: nowrap; }
+      .tbl .t { font-family: var(--mono); font-size: 14px; }
+      .tbl .l { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+      .tbl .l b { color: var(--text); font-weight: 600; }
+
+      #feed { flex: 0 0 340px; }
+      #feed ul { list-style: none; margin: 0; padding: 0; }
+      #feed li { display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 4px 0; animation: slidein 0.4s ease-out; }
+      #feed li + li { border-top: 1px solid var(--line); }
+      #feed li .id { font-family: var(--mono); color: var(--muted); font-size: 14px; min-width: 70px; }
+      #feed li .arrow { color: var(--muted); }
+      #feed li .when { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+      #feed .empty { color: var(--muted); font-size: 14px; }
+      @keyframes slidein { from { opacity: 0; transform: translateY(8px); } }
+
+      .tag { font-weight: 600; }
+      .tag.region_1 { color: var(--us); } .tag.region_2 { color: var(--eu); } .tag.region_3 { color: var(--ap); }
+
+      .band-label { font-family: var(--mono); font-size: 15px; letter-spacing: 0.14em; white-space: nowrap; opacity: 0.7; }
+
+      .plane { width: 100%; height: 100%; position: relative; cursor: pointer; }
+      .plane svg { width: 100%; height: 100%; transition: transform 0.9s linear; filter: drop-shadow(0 0 6px currentColor); overflow: visible; }
+      .rotor { transform-origin: 12px 10px; animation: spin 0.5s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .cool .plane svg { filter: drop-shadow(0 0 5px currentColor); }
+      body:not(.show-ufo) .ufo-marker { display: none; }
+      .ufo .plane svg { animation: wobble 1.4s ease-in-out infinite; transition: none; filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 14px currentColor); }
+      .ufo-tag { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px; font-family: var(--mono); font-size: 13px; font-weight: 600; white-space: nowrap; color: currentColor; text-shadow: 0 0 8px currentColor; }
+      .ufo .plane { animation: googly 2.3s ease-in-out infinite; }
+      @keyframes googly {
+        0% { transform: translate(0, 0); }
+        13% { transform: translate(22px, -18px); }
+        27% { transform: translate(-14px, -30px); }
+        38% { transform: translate(-30px, 6px); }
+        52% { transform: translate(8px, 24px); }
+        64% { transform: translate(28px, 4px); }
+        77% { transform: translate(-6px, -14px); }
+        88% { transform: translate(-24px, 18px); }
+        100% { transform: translate(0, 0); }
+      }
+      .speed .ufo-btn { margin-left: 6px; }
+      .speed .ufo-btn.on { color: var(--ink); background: var(--ap); border-color: var(--ap); }
+      @keyframes wobble { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-5px) rotate(8deg); } }
+      #ufo-toast {
+        position: absolute; z-index: 1001; top: 140px; left: 50%; transform: translateX(-50%);
+        font-family: var(--mono); font-size: 18px; letter-spacing: 0.3em; color: var(--ap);
+        background: var(--panel); border: 1px solid var(--ap); border-radius: 10px; padding: 10px 20px;
+        opacity: 0; transition: opacity 0.4s; pointer-events: none;
+      }
+      #ufo-toast.on { opacity: 1; }
+      .fleet { flex: 0 0 auto; }
+      .speed { display: flex; align-items: center; gap: 5px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+      .speed span { margin-right: 4px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; }
+      .speed button {
+        font-family: var(--mono); font-size: 14px; color: var(--muted); background: transparent;
+        border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; cursor: pointer;
+      }
+      .speed button:hover { color: var(--text); border-color: #6b6b74; }
+      .speed button.on { color: var(--ink); background: var(--text); border-color: var(--text); }
+      .fleet-grid { display: grid; grid-template-columns: auto auto; gap: 10px 16px; }
+      .fleet-item { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+      .fleet-item svg { width: 22px; height: 22px; color: var(--text); overflow: visible; }
+      .fleet-item b { margin-left: 6px; font-family: var(--mono); font-weight: 500; color: var(--text); font-size: 16px; }
+      .plane.moved::after {
+        content: ""; position: absolute; inset: -16px; border-radius: 50%;
+        border: 3px solid currentColor; animation: ring 1.4s ease-out 3;
+      }
+      @keyframes ring { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+      .leaflet-marker-icon { transition: transform 0.9s linear, opacity 0.5s ease-out; }
+      #tip {
+        position: fixed; z-index: 2000; display: none; pointer-events: none;
+        background: rgba(21, 22, 26, 0.96); color: var(--text); border: 1px solid var(--line);
+        border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        font-family: var(--sans); min-width: 250px;
+      }
+      #tip.pinned { border-color: #6b6b74; }
+      .tip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+      .tip-id { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+      .tip-model { color: var(--muted); font-size: 14px; }
+      .tip-row { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; padding: 4px 0; }
+      .tip-row span:first-child { color: var(--muted); }
+      .tip-row span:last-child { font-family: var(--mono); }
+      .tip-src { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.5; }
+      .tip-src b { color: var(--text); font-weight: 500; }
+      .battery { display: inline-block; width: 60px; height: 8px; border-radius: 4px; background: var(--line); margin-right: 8px; vertical-align: middle; overflow: hidden; }
+      .battery i { display: block; height: 100%; background: var(--ap); }
+      .stat .v, .stat .k { white-space: nowrap; }
+      @media (max-width: 1750px) {
+        #feed { flex-basis: 270px; }
+        .region .sub { display: none; }
+        #regions { gap: 22px; }
+      }
+      .hub { position: relative; width: 20px; height: 20px; }
+      .hub .core { position: absolute; inset: 4px; border-radius: 4px; background: currentColor; box-shadow: 0 0 12px currentColor; }
+      .hub .pulse { position: absolute; inset: -10px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: hubpulse 2.4s ease-out infinite; }
+      @keyframes hubpulse { from { transform: scale(0.4); opacity: 0.8; } to { transform: scale(1.4); opacity: 0; } }
+      .hub-label { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); font-size: 13px; font-weight: 600; color: currentColor; text-shadow: 0 0 6px var(--ink), 0 0 2px var(--ink); }
+      .hub-label .nodes { color: var(--muted); font-weight: 500; }
+      .hub.degraded .hub-label .nodes { color: #ffb020; }
+      .hub.down .core { background: #ff6b6b; box-shadow: 0 0 12px #ff6b6b; }
+      .wan-arc { stroke-dasharray: 2 10; animation: wanflow 1.2s linear infinite; }
+      @keyframes wanflow { to { stroke-dashoffset: -24; } }
+      .wan-label {
+        transform: translate(-50%, -50%); white-space: nowrap; font-family: var(--mono); font-size: 14px; font-weight: 600;
+        color: var(--text); background: rgba(11, 11, 12, 0.85); border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px;
+      }
+      .wan-label small { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 4px; }
+      .wan-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; color: var(--muted); white-space: nowrap; }
+      #placement { top: 24px; right: 24px; padding: 16px 20px 10px; }
+      #placement h2 { margin: 0 0 10px; font-size: 13px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+      .cluster-col h2 { margin: 0 0 8px; }
+      .crow { display: flex; align-items: center; gap: 5px; padding: 3px 0; }
+      .crow .tag { width: 26px; font-size: 14px; }
+      .cbtn {
+        font-family: var(--mono); font-size: 13px; color: var(--muted); background: transparent; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px;
+      }
+      .cbtn:hover { color: var(--text); border-color: #6b6b74; }
+      .cbtn.pending { opacity: 0.45; pointer-events: none; }
+      .node { width: 28px; padding: 2px 0; font-weight: 600; }
+      .node.up { color: var(--ink); background: var(--c); border-color: var(--c); }
+      .node.down { color: #ff6b6b; border-color: #ff6b6b; background: rgba(255, 107, 107, 0.08); }
+      .kill-region { margin-left: 6px; }
+      .kill-region.restore { color: var(--ap); border-color: var(--ap); }
+      .survive { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+      .survive span { letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; margin-right: 4px; }
+      .survive .cbtn.on { color: var(--ink); background: var(--text); border-color: var(--text); }
+      #survive-note { display: block; margin-top: 3px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .leaflet-marker-icon.stale { opacity: 0.4 !important; filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(4); }
+      .region .count.stale { opacity: 0.35; }
+      .live.degraded { color: #ffb020; }
+      .cbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+      .cbtn:disabled:hover { color: var(--muted); border-color: var(--line); }
+      .region .served { grid-column: 2; font-family: var(--mono); font-size: 12px; color: #ffb020; min-height: 0; }
+      .node { position: relative; }
+      .node .lb {
+        position: absolute; top: -7px; right: -7px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 5px;
+        font-size: 10px; line-height: 15px; font-weight: 700; color: var(--ink); background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+      }
+      #feed li.lease { color: var(--text); }
+      #feed li.lease .id { color: #fff; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <header class="panel">
+      <img src="vendor/wordmark-white.png" alt="CockroachDB" />
+      <div class="divider"></div>
+      <div>
+        <h1>Global fleet telemetry <span class="live" id="live">LIVE</span></h1>
+        <p>One database, three regions. Each aircraft's data lives where it flies.</p>
+      </div>
+    </header>
+
+    <section class="panel" id="placement">
+        <h2>Data placement</h2>
+      <div class="tbl"><div class="t">aircraft</div><div class="l"><b>GLOBAL</b></div></div>
+      <div class="tbl"><div class="t">aircraft_administration</div><div class="l"><b>REGIONAL</b> · EU</div></div>
+      <div class="tbl"><div class="t">aircraft_diagnostics</div><div class="l"><b>REGIONAL BY ROW</b></div></div>
+    </section>
+
+    <aside class="panel">
+      <div id="feed">
+        <h2>Rows moving between regions</h2>
+        <ul id="moves"><li class="empty">Watching for aircraft crossing a region boundary…</li></ul>
+      </div>
+      <div>
+        <h2>Where the data lives</h2>
+        <div id="regions"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="total">–</div><div class="k">aircraft reporting</div></div>
+        <div class="stat"><div class="v" id="latency">–</div><div class="k">write latency</div></div>
+        <div class="stat"><div class="v" id="read-latency">–</div><div class="k">read latency</div></div>
+      </div>
+      <div class="fleet">
+        <h2>Fleet</h2>
+        <div class="fleet-grid" id="fleet"></div>
+        <div class="speed" id="speed"><span>Speed</span></div>
+      </div>
+      <div class="cluster-col" id="cluster">
+        <h2>Cluster · 9 nodes</h2>
+        <div id="crows"></div>
+        <div class="survive"><span>Survive</span>
+          <button class="cbtn" data-goal="zone">Zone</button><button class="cbtn" data-goal="region">Region</button>
+        </div>
+        <small id="survive-note"></small>
+      </div>
+    </aside>
+
+
+    <div id="ufo-toast">UNIDENTIFIED CONTACT</div>
+    <div id="tip"></div>
+
+    <script src="vendor/leaflet.js"></script>
+    <script src="vendor/world.js"></script>
+    <script>
+      const API = new URLSearchParams(location.search).get("api") || "http://localhost:3000";
+
+      // Must match the crdb_region CASE expression in setup.sql.
+      const WEST = -26.454842, EAST = 44.79516;
+      const REGIONS = {
+        region_1: { name: "United States", short: "US", color: "#9059ff", from: -180, to: WEST, labelLng: -100 },
+        region_2: { name: "Europe",        short: "EU", color: "#60ecff", from: WEST, to: EAST, labelLng: 9 },
+        region_3: { name: "Asia Pacific",  short: "AP", color: "#aede54", from: EAST, to: 180, labelLng: 78 },
+      };
+
+      const map = L.map("map", {
+        crs: L.CRS.EPSG4326, zoomControl: false, attributionControl: false,
+        zoomSnap: 0.1, worldCopyJump: false, maxBounds: [[-95, -200], [95, 200]],
+      });
+      map.fitBounds([[-62, -180], [84, 180]]);
+      window.addEventListener("resize", () => map.fitBounds([[-62, -180], [84, 180]]));
+
+      for (const [id, r] of Object.entries(REGIONS)) {
+        L.rectangle([[-90, r.from], [90, r.to]], { stroke: false, fillColor: r.color, fillOpacity: 0.05, interactive: false }).addTo(map);
+        L.marker([74, r.labelLng], {
+          interactive: false,
+          icon: L.divIcon({ className: "", iconSize: null, html: `<div class="band-label" style="color:${r.color};transform:translateX(-50%)">${r.short} · ${id}</div>` }),
+        }).addTo(map);
+      }
+
+      L.geoJSON(window.WORLD, {
+        interactive: false,
+        style: { color: "#33343b", weight: 1, fillColor: "#17181c", fillOpacity: 1 },
+      }).addTo(map);
+
+      for (const lng of [WEST, EAST]) {
+        L.polyline([[-90, lng], [90, lng]], { color: "#6b6b74", weight: 1.5, dashArray: "6 8", interactive: false }).addTo(map);
+      }
+
+
+      // Region hubs and WAN links, using CockroachDB's own measured node-to-node latency.
+      const HUBS = {
+        region_1: { lat: 38.9, lng: -77.4, city: "Virginia" },
+        region_2: { lat: 50.1, lng: 8.7, city: "Frankfurt" },
+        region_3: { lat: 1.35, lng: 103.8, city: "Singapore" },
+      };
+      // Bulge direction keeps the three arcs apart: US-EU and EU-AP arc north, US-AP arcs south.
+      const ARC_BULGE = { "region_1|region_2": 14, "region_2|region_3": 12, "region_1|region_3": -42 };
+
+      const hubMarkers = {};
+      for (const [id, h] of Object.entries(HUBS)) {
+        hubMarkers[id] = L.marker([h.lat, h.lng], {
+          interactive: false, zIndexOffset: 3000,
+          icon: L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10],
+            html: `<div class="hub" style="color:${REGIONS[id].color}"><div class="pulse"></div><div class="core"></div>
+                   <div class="hub-label">${REGIONS[id].short} · ${h.city} <span class="nodes">–</span></div></div>` }),
+        }).addTo(map);
+      }
+
+      function arcPoints(a, b, bulge) {
+        const mid = [(a.lat + b.lat) / 2 + bulge, (a.lng + b.lng) / 2];
+        const pts = [];
+        for (let i = 0; i <= 48; i++) {
+          const t = i / 48, u = 1 - t;
+          pts.push([u * u * a.lat + 2 * u * t * mid[0] + t * t * b.lat, u * u * a.lng + 2 * u * t * mid[1] + t * t * b.lng]);
+        }
+        return pts;
+      }
+
+      const wanLinks = {};
+      for (const key of Object.keys(ARC_BULGE)) {
+        const [a, b] = key.split("|");
+        const pts = arcPoints(HUBS[a], HUBS[b], ARC_BULGE[key]);
+        L.polyline(pts, { color: "#ffffff", weight: 1.5, opacity: 0.12, interactive: false }).addTo(map);
+        const flow = L.polyline(pts, { color: "#ffffff", weight: 2.5, opacity: 0.55, className: "wan-arc", interactive: false }).addTo(map);
+        const label = L.marker(pts[24], { interactive: false, zIndexOffset: 3000,
+          icon: L.divIcon({ className: "", iconSize: null, html: `<div class="wan-label">–</div>` }) }).addTo(map);
+        wanLinks[key] = { flow, label };
+      }
+
+      async function refreshNetwork() {
+        try {
+          const res = await fetch(`${API}/network`);
+          if (!res.ok) throw new Error(res.status);
+          const net = await res.json();
+          for (const l of net.links) {
+            const link = wanLinks[`${l.a}|${l.b}`];
+            const el = link?.label.getElement()?.querySelector(".wan-label");
+            if (el) el.innerHTML = l.rtt_ms < 1 ? `<1 ms<small>RTT</small>` : `${Math.round(l.rtt_ms)} ms<small>RTT</small>`;
+          }
+          for (const [key, l] of Object.entries(net.leases || {})) {
+            const prev = leases[key];
+            if (prev && l.node && prev.node && prev.node !== l.node) addLeaseMove(key, prev, l);
+          }
+          leases = { ...leases, ...(net.leases || {}) };
+          renderLeases();
+          servedBy = net.served_by || {};
+          for (const p of planes.values()) paint(p);
+          for (const id of Object.keys(REGIONS)) {
+            const note = document.getElementById(`served-${id}`);
+            const by = servingRegion(id);
+            if (note) note.textContent = failingOver(id) ? "failing over…" : by !== id ? `served from ${REGIONS[by]?.short ?? by}` : "";
+          }
+        } catch (e) {}
+      }
+      refreshNetwork();
+      setInterval(refreshNetwork, 2000);
+
+      // Cluster controls: kill/restart nodes and whole regions, and switch the survival goal.
+      const crows = document.getElementById("crows");
+      crows.innerHTML = Object.entries(REGIONS).map(([id, r], i) => `
+        <div class="crow" style="--c:${r.color}">
+          <span class="tag ${id}">${r.short}</span>
+          ${[1, 2, 3].map((k) => `<button class="cbtn node" data-n="${i * 3 + k}" title="lat-roach${i * 3 + k}">${i * 3 + k}</button>`).join("")}
+          <button class="cbtn kill-region" data-r="${id}">Kill region</button>
+        </div>`).join("");
+
+      let cluster = { nodes: [], survival: "" };
+
+      function renderCluster() {
+        // Hub node counts come from the containers' real state, so they stay right even when the cluster is struggling.
+        for (const id of Object.keys(HUBS)) {
+          const nodes = cluster.nodes.filter((n) => n.region === id);
+          const hub = hubMarkers[id]?.getElement()?.querySelector(".hub");
+          if (!hub || nodes.length === 0) continue;
+          const up = nodes.filter((n) => n.running).length;
+          hub.querySelector(".nodes").textContent = `${up}/${nodes.length} nodes`;
+          hub.classList.toggle("degraded", up < nodes.length && up > 0);
+          hub.classList.toggle("down", up === 0);
+        }
+        for (const n of cluster.nodes) {
+          const b = crows.querySelector(`.node[data-n="${n.n}"]`);
+          if (!b) continue;
+          b.classList.toggle("up", n.running);
+          b.classList.toggle("down", !n.running);
+          if (b.dataset.want === String(n.running)) { b.classList.remove("pending"); delete b.dataset.want; }
+        }
+        renderLeases();
+        for (const btn of crows.querySelectorAll(".kill-region")) {
+          const nodes = cluster.nodes.filter((n) => n.region === btn.dataset.r);
+          const allDown = nodes.length > 0 && nodes.every((n) => !n.running);
+          btn.textContent = allDown ? "Restore" : "Kill region";
+          btn.classList.toggle("restore", allDown);
+          // Under zone survival a region outage strands cross-region transactions, so only allow it under region survival.
+          btn.disabled = !allDown && cluster.survival !== "region";
+          btn.title = btn.disabled ? "Switch Survive to Region to kill a whole region" : "";
+        }
+        for (const b of document.querySelectorAll(".survive .cbtn")) b.classList.toggle("on", b.dataset.goal === cluster.survival);
+        document.getElementById("survive-note").textContent =
+          cluster.survival === "region" ? "writes need 2 regions · can lose a region" : cluster.survival === "zone" ? "writes stay local · region kill needs Region" : "";
+      }
+
+      async function refreshCluster() {
+        try {
+          const res = await fetch(`${API}/cluster`);
+          if (res.ok) { cluster = await res.json(); renderCluster(); }
+        } catch (e) {}
+      }
+
+      async function post(path, btn) {
+        btn?.classList.add("pending");
+        try { await fetch(`${API}${path}`, { method: "POST" }); } catch (e) {}
+        await refreshCluster();
+      }
+
+      crows.addEventListener("click", (e) => {
+        const node = e.target.closest(".node");
+        if (node) {
+          const running = node.classList.contains("up");
+          node.dataset.want = String(!running);
+          post(`/nodes/${node.dataset.n}/${running ? "stop" : "start"}`, node);
+          return;
+        }
+        const kr = e.target.closest(".kill-region");
+        if (kr) post(`/regions/${kr.dataset.r}/${kr.classList.contains("restore") ? "start" : "stop"}`, kr).then(() => kr.classList.remove("pending"));
+      });
+
+      for (const b of document.querySelectorAll(".survive .cbtn")) {
+        b.onclick = async () => {
+          if (b.dataset.goal === cluster.survival) return;
+          document.getElementById("survive-note").textContent = "applying…";
+          await post(`/survival?goal=${b.dataset.goal}`, b);
+          b.classList.remove("pending");
+        };
+      }
+
+      refreshCluster();
+      setInterval(refreshCluster, 2000);
+
+      const regionsEl = document.getElementById("regions");
+      regionsEl.innerHTML = Object.entries(REGIONS).map(([id, r]) => `
+        <div class="region">
+          <div class="swatch" style="background:${r.color}"></div>
+          <div class="name">${r.short} <span class="sub">${id}</span></div>
+          <div class="count" id="count-${id}" style="color:${r.color}">–</div>
+          <div class="served" id="served-${id}"></div>
+        </div>`).join("");
+
+      const TYPES = {
+        fixed_wing: { label: "Fixed-wing", size: 30, svg: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.8 0 1.4.9 1.4 2v5.2l7.6 4.4v2l-7.6-2.3v4.6l2.2 1.7v1.6L12 20.3l-3.6.9v-1.6l2.2-1.7v-4.6L3 15.6v-2l7.6-4.4V4c0-1.1.6-2 1.4-2z"/></svg>` },
+        helicopter: { label: "Helicopter", size: 32, svg: `<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="10" rx="3" ry="4.5"/><rect x="11.3" y="13" width="1.4" height="8.5"/><rect x="9" y="20" width="6" height="1.4" rx=".7"/><g class="rotor"><path d="M2 10h20M12 0v20" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></g></svg>` },
+        drone:      { label: "UAS", size: 26, svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 7l10 10M17 7L7 17"/><circle cx="5.5" cy="5.5" r="3"/><circle cx="18.5" cy="5.5" r="3"/><circle cx="5.5" cy="18.5" r="3"/><circle cx="18.5" cy="18.5" r="3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1" fill="currentColor" stroke="none"/></svg>` },
+        cool_plane: { label: "Cool plane", size: 64, svg: `<svg viewBox="-20 0 80 80"><g fill="currentColor" stroke="#0b0b0c" stroke-width="0.8" stroke-linejoin="round"><path d="M20 1C20.8 6 21.6 12 22.4 20L23.5 30L28 38L37 60L37 64L26 66L22 70L20 77L18 70L14 66L3 64L3 60L12 38L16.5 30L17.6 20C18.4 12 19.2 6 20 1Z"/><path d="M11 23L13.6 31V68Q11 71 8.4 68V31Z"/><path d="M29 23L31.6 31V68Q29 71 26.4 68V31Z"/></g><path d="M10.5 57L8 69M29.5 57L32 69" stroke="#0b0b0c" stroke-width="1.2" stroke-linecap="round"/><ellipse cx="20" cy="14" rx="1.1" ry="3" fill="#0b0b0c" opacity=".55"/></svg>` },
+        ufo:        { label: "???", size: 64, svg: `<svg viewBox="0 0 64 64"><defs><linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f" stop-opacity=".9"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></linearGradient></defs><polygon points="25,37 39,37 50,64 14,64" fill="url(#beam)"/><path d="M19 31C19 14 45 14 45 31Z" fill="#5ab4f5" stroke="#2a2340" stroke-width="1.2"/><path d="M27 31Q32 26 37 31Z" fill="#8fd63f" stroke="#2a2340" stroke-width=".8"/><ellipse cx="32" cy="22.5" rx="6" ry="6.8" fill="#9be04a" stroke="#2a2340" stroke-width=".9"/><ellipse cx="29.4" cy="23" rx="2" ry="2.9" fill="#1a1530" transform="rotate(-25 29.4 23)"/><ellipse cx="34.6" cy="23" rx="2" ry="2.9" fill="#1a1530" transform="rotate(25 34.6 23)"/><path d="M38 18Q41 20 41.5 25" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".7"/><ellipse cx="32" cy="35.5" rx="18" ry="4.5" fill="#8e94a0" stroke="#2a2340" stroke-width="1.2"/><ellipse cx="32" cy="32" rx="27" ry="7" fill="#cfd2d9" stroke="#2a2340" stroke-width="1.4"/><path d="M6 32Q32 38 58 32" stroke="#2a2340" stroke-width=".8" fill="none" opacity=".6"/><g fill="#ffd23f" stroke="#2a2340" stroke-width=".8"><ellipse cx="13" cy="31.5" rx="2" ry="1.4"/><ellipse cx="22.5" cy="33.6" rx="2" ry="1.4"/><ellipse cx="32" cy="34.3" rx="2" ry="1.4"/><ellipse cx="41.5" cy="33.6" rx="2" ry="1.4"/><ellipse cx="51" cy="31.5" rx="2" ry="1.4"/></g></svg>` },
+      };
+
+      document.getElementById("fleet").innerHTML = ["fixed_wing", "helicopter", "drone", "cool_plane"].map((t) => `
+        <div class="fleet-item">${TYPES[t].svg}<span>${TYPES[t].label}</span><b id="type-${t}">–</b></div>`).join("");
+
+      let speed = 1;
+      const speedEl = document.getElementById("speed");
+      for (const x of [1, 3, 5, 10]) {
+        const b = document.createElement("button");
+        b.textContent = `${x}×`;
+        b.dataset.x = x;
+        b.onclick = () => setSpeed(x);
+        speedEl.append(b);
+      }
+
+      function renderSpeed() {
+        for (const b of speedEl.querySelectorAll("button[data-x]")) b.classList.toggle("on", Number(b.dataset.x) === speed);
+      }
+
+      async function setSpeed(x) {
+        try {
+          const res = await fetch(`${API}/speed?x=${x}`, { method: "POST" });
+          if (res.ok) speed = (await res.json()).speed;
+        } catch (e) {}
+        renderSpeed();
+      }
+
+      fetch(`${API}/speed`).then((r) => r.json()).then((d) => { speed = d.speed; renderSpeed(); }).catch(renderSpeed);
+
+      let showUfo = false;
+      const ufoToast = document.getElementById("ufo-toast");
+      const ufoBtn = document.createElement("button");
+      ufoBtn.className = "ufo-btn";
+      ufoBtn.textContent = "UFO";
+      ufoBtn.onclick = toggleUfo;
+      speedEl.append(ufoBtn);
+
+      function toggleUfo() {
+        showUfo = !showUfo;
+        document.body.classList.toggle("show-ufo", showUfo);
+        ufoBtn.classList.toggle("on", showUfo);
+        if (showUfo) {
+          ufoToast.classList.add("on");
+          setTimeout(() => ufoToast.classList.remove("on"), 2500);
+        }
+      }
+      document.addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "u") toggleUfo(); });
+
+      const planes = new Map();
+      const moves = document.getElementById("moves");
+      const shortId = (id) => "AC-" + id.slice(0, 4).toUpperCase();
+
+      function addMove(id, from, to) {
+        moves.querySelector(".empty")?.remove();
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="id">${shortId(id)}</span>
+          <span class="tag ${from}">${REGIONS[from]?.short ?? from}</span><span class="arrow">→</span>
+          <span class="tag ${to}">${REGIONS[to]?.short ?? to}</span>
+          <span class="when">${new Date().toLocaleTimeString([], { hour12: false })}</span>`;
+        moves.prepend(li);
+        while (moves.children.length > 3) moves.lastChild.remove();
+      }
+
+      function bump(id) {
+        const el = document.getElementById(`count-${id}`);
+        el.classList.add("bump");
+        setTimeout(() => el.classList.remove("bump"), 1200);
+      }
+
+      function tipHtml(a) {
+        const r = REGIONS[a.region] ?? { short: a.region, color: "#fff" };
+        const by = servingRegion(a.region);
+        const servedRow = by !== a.region
+          ? `<div class="tip-row"><span>Served from</span><span style="color:${regionColor(by)}">${REGIONS[by]?.short ?? by} · ${by} (${r.short} down)</span></div>` : "";
+        const pct = Math.max(0, Math.min(100, a.battery_level));
+        const fmt = (v, pos, neg) => `${Math.abs(v).toFixed(2)}°${v >= 0 ? pos : neg}`;
+        const ufo = a.category === "ufo";
+        const capacity = ufo ? "???" : a.category === "drone" ? "Uncrewed" : `${a.capacity} seats`;
+        const range = ufo ? "???" : `${Math.round(a.range_km).toLocaleString()} km`;
+        const service = new Date(a.next_service).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+        return `
+          <div class="tip-head"><span class="tip-id">${shortId(a.aircraft_id)}</span><span class="tip-model">${a.model} · base ${a.base}</span></div>
+          <div class="tip-row"><span>Home region</span><span style="color:${r.color}">${r.short} · ${a.region}</span></div>${servedRow}
+          <div class="tip-row"><span>Position</span><span>${fmt(a.lat, "N", "S")} ${fmt(a.lon, "E", "W")}</span></div>
+          <div class="tip-row"><span>Type</span><span>${TYPES[a.category]?.label ?? a.category}</span></div>
+          <div class="tip-row"><span>Capacity</span><span>${capacity}</span></div>
+          <div class="tip-row"><span>Range</span><span>${range}</span></div>
+          <div class="tip-row"><span>Heading</span><span>${a.heading}°</span></div>
+          <div class="tip-row"><span>Battery</span><span><span class="battery"><i style="width:${pct}%"></i></span>${pct.toFixed(1)}%</span></div>
+          <div class="tip-row"><span>Flight hours</span><span>${ufo ? "???" : Math.round(a.flight_hours).toLocaleString()}</span></div>
+          <div class="tip-row"><span>Next service</span><span>${ufo ? "never" : service}</span></div>
+          <div class="tip-row"><span>Write latency</span><span>${a.last_update_latency_ms} ms</span></div>
+          <div class="tip-row"><span>Read latency</span><span>${a.read_latency_ms != null ? `${a.read_latency_ms.toFixed(1)} ms` : "…"}</span></div>
+          <div class="tip-src"><b>aircraft</b> (GLOBAL) + <b>aircraft_administration</b> (REGIONAL)<br>+ <b>aircraft_diagnostics</b> (REGIONAL BY ROW)</div>`;
+      }
+
+      const tipEl = document.getElementById("tip");
+      let tipId = null, pinned = false;
+
+      async function timeTipRead(id) {
+        try {
+          const res = await fetch(`${API}/aircraft/${id}/read`);
+          if (!res.ok) return;
+          const { read_latency_ms } = await res.json();
+          const p = planes.get(id);
+          if (p) p.readMs = read_latency_ms;
+          if (tipId === id) showTip(id);
+        } catch (e) {}
+      }
+
+      function showTip(id) {
+        const p = planes.get(id);
+        const el = p?.marker.getElement();
+        if (!p?.data || !el || el.offsetParent === null) return hideTip();
+        tipId = id;
+        tipEl.innerHTML = tipHtml({ ...p.data, read_latency_ms: p.readMs });
+        tipEl.classList.toggle("pinned", pinned);
+        tipEl.style.display = "block";
+
+        const r = el.getBoundingClientRect();
+        const w = tipEl.offsetWidth, h = tipEl.offsetHeight, m = 12;
+        let left = r.left + r.width / 2 - w / 2;
+        let top = r.top - h - m;
+        if (top < m) top = r.bottom + m;
+        left = Math.min(Math.max(left, m), innerWidth - w - m);
+        top = Math.min(Math.max(top, m), innerHeight - h - m);
+        tipEl.style.left = `${left}px`;
+        tipEl.style.top = `${top}px`;
+      }
+
+      function hideTip() {
+        tipId = null;
+        pinned = false;
+        tipEl.style.display = "none";
+      }
+
+      map.on("click", hideTip);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
+
+      const TRAIL_SEGMENTS = 14;
+      const TRAIL_LENGTH_DEG = 60;
+      const MOVE_MS = 900; // must match the .leaflet-marker-icon transition
+
+      // Rebuilds each trail every frame: densified history plus a head that glides in step with the marker.
+      function drawTrails(now) {
+        for (const p of planes.values()) {
+          if (!p.trailSegs || !p.anim) continue;
+          const { from, to, t0 } = p.anim;
+          const t = Math.min(1, (now - t0) / MOVE_MS);
+          const head = [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+
+          const pts = [...p.samples.slice(0, -1), head];
+          const dense = [];
+          for (let i = 0; i < pts.length; i++) {
+            if (i > 0) {
+              const [a0, b0] = pts[i - 1], [a1, b1] = pts[i];
+              const steps = Math.ceil(Math.hypot(a1 - a0, b1 - b0) / 0.5);
+              for (let k = 1; k < steps; k++) dense.push([a0 + (a1 - a0) * (k / steps), b0 + (b1 - b0) * (k / steps)]);
+            }
+            dense.push(pts[i]);
+          }
+
+          let len = 0, start = dense.length - 1;
+          while (start > 0) {
+            len += Math.hypot(dense[start][0] - dense[start - 1][0], dense[start][1] - dense[start - 1][1]);
+            if (len > TRAIL_LENGTH_DEG) break;
+            start--;
+          }
+          const path = dense.slice(start);
+
+          const n = TRAIL_SEGMENTS;
+          for (let i = 0; i < n; i++) {
+            const a = Math.floor((i * (path.length - 1)) / n);
+            const b = Math.floor(((i + 1) * (path.length - 1)) / n);
+            p.trailSegs[i].setLatLngs(path.length > 1 ? path.slice(a, b + 1) : []);
+          }
+        }
+        requestAnimationFrame(drawTrails);
+      }
+      requestAnimationFrame(drawTrails);
+
+      const regionColor = (region) => REGIONS[region]?.color ?? "#ffffff";
+
+      // Which region currently serves each region's data (moves when a region fails under region survival).
+      let servedBy = {};
+      // Leaseholder node for each tracked dataset: each region's telemetry, the GLOBAL fleet table, the EU admin table.
+      let leases = {};
+      const LEASE_LABELS = { region_1: "US telemetry", region_2: "EU telemetry", region_3: "AP telemetry", aircraft: "Fleet (GLOBAL)", administration: "Admin (EU)" };
+
+      function renderLeases() {
+        const held = {};
+        for (const [key, l] of Object.entries(leases)) if (l.node) (held[l.node] ||= []).push(LEASE_LABELS[key] ?? key);
+        for (const b of document.querySelectorAll(".node")) {
+          const list = held[b.dataset.n] || [];
+          let badge = b.querySelector(".lb");
+          if (list.length && !badge) { badge = document.createElement("span"); badge.className = "lb"; b.append(badge); }
+          if (badge) { if (list.length) badge.textContent = list.length > 1 ? `L${list.length}` : "L"; else badge.remove(); }
+          b.title = `lat-roach${b.dataset.n}` + (list.length ? ` · leaseholder: ${list.join(", ")}` : "");
+        }
+      }
+
+      function addLeaseMove(key, from, to) {
+        moves.querySelector(".empty")?.remove();
+        const li = document.createElement("li");
+        li.className = "lease";
+        li.innerHTML = `<span class="id">LEASE</span><span>${LEASE_LABELS[key] ?? key}</span><span class="arrow">→</span>
+          <span class="tag ${to.region}">node ${to.node} ${REGIONS[to.region]?.short ?? ""}</span>
+          <span class="when">${new Date().toLocaleTimeString([], { hour12: false })}</span>`;
+        moves.prepend(li);
+        while (moves.children.length > 3) moves.lastChild.remove();
+      }
+      const servingRegion = (region) => servedBy[region] || region;
+
+      // A region with no live nodes and no known new leaseholder yet is mid-failover.
+      const failingOver = (region) => !servedBy[region] && cluster.nodes.some((n) => n.region === region) &&
+        cluster.nodes.filter((n) => n.region === region).every((n) => !n.running);
+
+      function paint(p) {
+        const color = failingOver(p.shown) ? "#ffffff" : regionColor(servingRegion(p.shown));
+        const el = p.marker.getElement()?.querySelector(".plane");
+        if (el) el.style.color = color;
+        const tag = el?.querySelector(".ufo-tag");
+        if (tag) tag.textContent = `${REGIONS[p.shown]?.short ?? "?"} · ${p.shown}`;
+        if (p.trailSegs && p.color !== color) {
+          p.color = color;
+          for (const seg of p.trailSegs) seg.setStyle({ color });
+        }
+      }
+
+      function upsert(a) {
+        let p = planes.get(a.aircraft_id);
+        const prevLon = p?.lon ?? a.lon;
+        if (!p) {
+          const t = TYPES[a.category] ?? TYPES.fixed_wing;
+          const cls = { cool_plane: "cool", ufo: "ufo ufo-marker" }[a.category] ?? "";
+          const marker = L.marker([a.lat, a.lon], {
+            zIndexOffset: a.category === "cool_plane" || a.category === "ufo" ? 1000 : 0,
+            icon: L.divIcon({ className: cls, iconSize: [t.size, t.size], iconAnchor: [t.size / 2, t.size / 2], html: `<div class="plane">${t.svg}${a.category === "ufo" ? `<div class="ufo-tag"></div>` : ""}</div>` }),
+          }).addTo(map);
+          marker.on("mouseover", () => { if (!pinned) { showTip(a.aircraft_id); timeTipRead(a.aircraft_id); } });
+          marker.on("mouseout", () => { if (!pinned) hideTip(); });
+          marker.on("click", (e) => { L.DomEvent.stopPropagation(e); pinned = true; showTip(a.aircraft_id); timeTipRead(a.aircraft_id); });
+          p = { marker, region: a.region, shown: a.region, lon: a.lon };
+          if (a.category === "cool_plane") {
+            p.trailSegs = Array.from({ length: TRAIL_SEGMENTS }, (_, i) =>
+              L.polyline([], { weight: 4, opacity: 0.08 + 0.72 * ((i + 1) / TRAIL_SEGMENTS), lineCap: "round", interactive: false }).addTo(map));
+            p.samples = [];
+          }
+          planes.set(a.aircraft_id, p);
+        } else {
+          p.target = [a.lat, a.lon];
+          const iconEl = p.marker.getElement();
+          const teleport = a.category === "ufo" && Math.hypot(a.lat - p.marker.getLatLng().lat, a.lon - p.lon) > 25;
+          if (teleport && iconEl) {
+            clearTimeout(p.wrapTimer);
+            p.wrapTimer = null;
+            iconEl.style.transition = "none";
+            iconEl.style.opacity = "0";
+            p.marker.setLatLng(p.target);
+            void iconEl.offsetWidth;
+            iconEl.style.transition = "";
+            iconEl.style.opacity = "";
+          } else if (Math.abs(p.lon - a.lon) > 180 && iconEl) {
+            // Crossing the antimeridian: glide off one edge, then fade in on the other instead of sliding across the map.
+            p.marker.setLatLng([a.lat, a.lon + (a.lon < p.lon ? 360 : -360)]);
+            clearTimeout(p.wrapTimer);
+            p.wrapTimer = setTimeout(() => {
+              p.wrapTimer = null;
+              iconEl.style.transition = "none";
+              iconEl.style.opacity = "0";
+              p.marker.setLatLng(p.target);
+              void iconEl.offsetWidth;
+              iconEl.style.transition = "";
+              iconEl.style.opacity = "";
+            }, MOVE_MS);
+          } else if (!p.wrapTimer) {
+            p.marker.setLatLng(p.target);
+          }
+          p.lon = a.lon;
+        }
+
+        p.data = a;
+        if (tipId === a.aircraft_id) showTip(a.aircraft_id);
+
+        const el = p.marker.getElement()?.querySelector(".plane");
+        if (!el) return;
+        paint(p);
+        if (a.category !== "ufo") el.querySelector("svg").style.transform = `rotate(${a.heading}deg)`;
+
+        if (p.trailSegs) {
+          const to = [a.lat, a.lon];
+          const last = p.samples[p.samples.length - 1];
+          if (last && Math.abs(last[1] - a.lon) > 180) p.samples = [];
+          p.anim = { from: p.samples[p.samples.length - 1] ?? to, to, t0: performance.now() };
+          p.samples.push(to);
+          if (p.samples.length > 60) p.samples.shift();
+        }
+
+        if (p.region !== a.region) {
+          // The row has already moved in the database; repaint when the animation actually reaches the boundary.
+          const from = p.region, to = a.region;
+          let delay = MOVE_MS;
+          if (a.category === "ufo" && Math.abs(a.lon - prevLon) > 25) {
+            delay = 0;
+          } else if (Math.abs(a.lon - prevLon) <= 180 && a.lon !== prevLon) {
+            const boundary = [WEST, EAST].find((b) => (prevLon - b) * (a.lon - b) <= 0);
+            if (boundary !== undefined) delay = ((boundary - prevLon) / (a.lon - prevLon)) * MOVE_MS;
+          }
+          p.region = to;
+          clearTimeout(p.regionTimer);
+          p.regionTimer = setTimeout(() => {
+            p.shown = to;
+            paint(p);
+            if (a.category === "ufo" && !showUfo) return;
+            addMove(a.aircraft_id, from, to);
+            bump(to);
+            el.classList.remove("moved");
+            void el.offsetWidth;
+            el.classList.add("moved");
+            setTimeout(() => el.classList.remove("moved"), 4300);
+          }, delay);
+        }
+      }
+
+      const live = document.getElementById("live");
+      let inFlight = false;
+
+      async function tick() {
+        if (inFlight) return;
+        inFlight = true;
+        try {
+          const res = await fetch(API);
+          if (!res.ok) throw new Error(res.status);
+          const data = await res.json();
+          const offline = (res.headers.get("X-Offline-Regions") || "").split(",").filter(Boolean);
+
+          const counts = { region_1: 0, region_2: 0, region_3: 0 };
+          const types = { fixed_wing: 0, helicopter: 0, drone: 0, cool_plane: 0 };
+          let latencySum = 0, shown = 0;
+          for (const a of data) {
+            upsert(a);
+            if (a.category === "ufo" && !showUfo) continue;
+            shown++;
+            counts[a.region] = (counts[a.region] ?? 0) + 1;
+            if (a.category in types) types[a.category]++;
+            latencySum += a.last_update_latency_ms;
+          }
+          for (const [t, n] of Object.entries(types)) document.getElementById(`type-${t}`).textContent = n;
+          for (const [id, n] of Object.entries(counts)) {
+            const el = document.getElementById(`count-${id}`);
+            if (!el) continue;
+            el.classList.toggle("stale", offline.includes(id));
+            if (!offline.includes(id)) el.textContent = n;
+          }
+          // An unreachable region's aircraft keep their last position, dimmed.
+          for (const p of planes.values()) p.marker.getElement()?.classList.toggle("stale", offline.includes(p.region));
+          document.getElementById("total").textContent = shown;
+          document.getElementById("latency").textContent = shown ? `${Math.round(latencySum / shown)} ms` : "–";
+          if (tipId) timeTipRead(tipId);
+          const readMs = Number(res.headers.get("X-Read-Latency-Ms"));
+          document.getElementById("read-latency").textContent = readMs ? `${Math.round(readMs)} ms` : "–";
+          live.classList.remove("down");
+          live.classList.toggle("degraded", offline.length > 0);
+          live.textContent = offline.length ? `${offline.map((r) => REGIONS[r]?.short ?? r).join(" + ")}: NO QUORUM` : "LIVE";
+        } catch (e) {
+          live.classList.remove("degraded");
+          live.classList.add("down");
+          live.textContent = "NO QUORUM";
+        } finally {
+          inFlight = false;
+        }
+      }
+
+      tick();
+      setInterval(tick, 1000);
+    </script>
+  </body>
+</html>
