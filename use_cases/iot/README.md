@@ -14,9 +14,9 @@
 * Aircraft flying _between_ regions, with their data following them
 * Killing nodes and whole regions while the fleet keeps reporting
 
-### Run it locally (booth setup)
+### Run it locally
 
-The current way to run this demo is a local 9-node cluster with simulated WAN latency between three regions, plus a map with cluster controls. See **[BOOTH-RUNBOOK.md](BOOTH-RUNBOOK.md)** for setup, the demo flow, talk track, recovery steps and shutdown.
+The current way to run this demo is a local 9-node cluster with simulated WAN latency between three regions, plus a map with cluster controls.
 
 Quick start, once the cluster is set up:
 
